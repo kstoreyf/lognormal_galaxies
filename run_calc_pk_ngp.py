@@ -134,6 +134,19 @@ losz = 0	# line-of-sight direction of z
 lmax=4          # lmax for reconstructing the leakage (the output pk file will contain k, pmono, pquad, and phexa, so lmax>=4)
 imulfname='coupling/imul_Lx'+str(Lx)+'_Ly'+str(Ly)+'_Lz'+str(Lz)+'_nmax'+str(nmax)+'_kbin'+str(kbin)+'_kmax'+str(kmax)+'_lmax'+str(lmax)+'.bin'     # input inverse mu-leakage matrix file; if it does not exist, the code will compute and output it
 
+# check the directory:
+coupling_dir = 'coupling'
+pk_dir = 'pk'
+try:
+	os.mkdir(doupling_dir)
+except:
+	print 'Directory '+coupling_dir+' exist!'
+
+try:
+	os.mkdir(pk_dir)
+except:
+	print 'Directory '+pk_dir+' exist!'
+
 random.seed(iseed)
 print 'iseed=',iseed
 for i in range(0,nrealisation):
