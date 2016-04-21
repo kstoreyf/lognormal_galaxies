@@ -33,11 +33,11 @@ int main(void)
 	cout << "Please enter the number of lines in the Pk file above" << endl;
 	cin >> ndatapk;
 	string mpkfname;	//modified by Aniket
-        cout << "Please enter the name of the Log-normal matter Pk file [1st: k in units of h/Mpc; 2nd: P(k) in units of Mpc^3/h^3]" << endl;	//modified by Aniket
-        cin >> mpkfname;	//modified by Aniket
-        int ndatampk;		//modified by Aniket
-        cout << "Please enter the number of lines in the matter Pk file above" << endl;
-        cin >> ndatampk;
+	cout << "Please enter the name of the Log-normal matter Pk file [1st: k in units of h/Mpc; 2nd: P(k) in units of Mpc^3/h^3]" << endl;	//modified by Aniket
+	cin >> mpkfname;	//modified by Aniket
+	int ndatampk;		//modified by Aniket
+	cout << "Please enter the number of lines in the matter Pk file above" << endl;
+	cin >> ndatampk;
 	double lengthx,lengthy,lengthz;
 	cout << "Please enter the length of the Fourier box in x, y, and z:" << endl;
 	cin >> lengthx >> lengthy >> lengthz;
@@ -51,11 +51,11 @@ int main(void)
 	cout << "Please enter the velocity to distance factor (aH) [km/s/(Mpc/h)]:" << endl;
 	cin >> aH;
 	string ffname;		//modified by Aniket
-        cout << "Please enter the logarithmic growth rate file [1st: k in units of h/Mpc; 2nd: f(k,z)]:" << endl;	//modified by Aniket
-        cin >> ffname;		//modified by Aniket
-        int ndataf;		//modified by Aniket
-        cout << "Please enter the number of lines in the logarithmic growth rate file above" << endl;	//modified by Aniket
-        cin >> ndataf;		//modified by Aniket
+	cout << "Please enter the logarithmic growth rate file [1st: k in units of h/Mpc; 2nd: f(k,z)]:" << endl;	//modified by Aniket
+	cin >> ffname;		//modified by Aniket
+	int ndataf;		//modified by Aniket
+	cout << "Please enter the number of lines in the logarithmic growth rate file above" << endl;	//modified by Aniket
+	cin >> ndataf;		//modified by Aniket
 	double bias;
 	cout << "Please enter the linear bias:" << endl;
 	cin >> bias;
@@ -72,8 +72,8 @@ int main(void)
 	cout << "Please enter the output file to store the poisson sample!" <<endl;
 	cin >> Poissonfname;
 	string Densityfname;	//modified by Aniket
-        cout << "Please enter the output file to store density!" << endl;	//modified by Aniket
-        cin >> Densityfname;	//modified by Aniket
+	cout << "Please enter the output file to store density!" << endl;	//modified by Aniket
+	cin >> Densityfname;	//modified by Aniket
 
 // -------------------------------------------------------------------------
 // gsl variables
@@ -161,7 +161,6 @@ int main(void)
 //	Pfftw_r2c = fftw_plan_dft_r2c_3d(n0, n1, n2, deltar, deltak, FFTW_ESTIMATE);
 
 //	declare velocity variables
-
 	fftw_complex *vxk;
 	fftw_complex *vyk;
 	fftw_complex *vzk;
@@ -222,13 +221,13 @@ int main(void)
 				deltak[i2 + cn2*(i1 + n1*(i0))][0]
 				=gauss*sqrt(0.5*pk.value(kvalue)*volume);
 				deltamk[i2+cn2*(i1 + n1*(i0))][0]
-                                =gauss*sqrt(0.5*mpk.value(kvalue)*volume);	//modified by Aniket
+				=gauss*sqrt(0.5*mpk.value(kvalue)*volume);	//modified by Aniket
 
 				gauss = gsl_ran_gaussian(r,1.0);
 				deltak[i2 + cn2*(i1 + n1*(i0))][1]
 				=gauss*sqrt(0.5*pk.value(kvalue)*volume);
 				deltamk[i2+cn2*(i1 + n1*(i0))][1]
-                                =gauss*sqrt(0.5*mpk.value(kvalue)*volume);	//modified by Aniket
+				=gauss*sqrt(0.5*mpk.value(kvalue)*volume);	//modified by Aniket
 			}
 		}
 	}
@@ -320,12 +319,12 @@ int main(void)
 					deltak[cn2*(i1 + n1*(i0))][0]
 					=gauss*sqrt(0.5*pk.value(kvalue0)*volume);
 					deltamk[cn2*(i1 + n1*(i0))][0]
-                                        =gauss*sqrt(0.5*mpk.value(kvalue0)*volume);		//modified by Aniket
+					=gauss*sqrt(0.5*mpk.value(kvalue0)*volume);		//modified by Aniket
 					gauss = gsl_ran_gaussian(r,1.0);
 					deltak[cn2*(i1 + n1*(i0))][1]
 					=gauss*sqrt(0.5*pk.value(kvalue0)*volume);
 					deltamk[cn2*(i1 + n1*(i0))][1]
-                                        =gauss*sqrt(0.5*mpk.value(kvalue0)*volume);		//modified by Aniket
+					=gauss*sqrt(0.5*mpk.value(kvalue0)*volume);		//modified by Aniket
 					// assign the complex conjugate to
 					// deltak(x0,x1,0)
 					deltak[cn2*(x1 + n1*(x0))][0]=deltak[cn2*(i1 + n1*(i0))][0];
@@ -338,22 +337,22 @@ int main(void)
 						deltak[n2/2+cn2*(i1 + n1*(i0))][0]
 						=gauss*sqrt(0.5*pk.value(kvalue1)*volume);
 						deltamk[n2/2+cn2*(i1 + n1*(i0))][0]
-                                                =gauss*sqrt(0.5*mpk.value(kvalue1)*volume);	//modified by Aniket
+						=gauss*sqrt(0.5*mpk.value(kvalue1)*volume);	//modified by Aniket
 
 						gauss = gsl_ran_gaussian(r,1.0);
 						deltak[n2/2+cn2*(i1 + n1*(i0))][1]
 						=gauss*sqrt(0.5*pk.value(kvalue1)*volume);
 						deltamk[n2/2+cn2*(i1 + n1*(i0))][1]
-                                                =gauss*sqrt(0.5*mpk.value(kvalue1)*volume);	//modified by Aniket
+						=gauss*sqrt(0.5*mpk.value(kvalue1)*volume);	//modified by Aniket
 
 						deltak[n2/2+cn2*(x1 + n1*(x0))][0]
 						=deltak[n2/2+cn2*(i1 + n1*(i0))][0];
 						deltamk[n2/2+cn2*(x1 + n1*(x0))][0]
-                                                =deltamk[n2/2+cn2*(i1 + n1*(i0))][0];		//modified by Aniket
+						=deltamk[n2/2+cn2*(i1 + n1*(i0))][0];		//modified by Aniket
 						deltak[n2/2+cn2*(x1 + n1*(x0))][1]
 						=-deltak[n2/2+cn2*(i1 + n1*(i0))][1];
 						deltamk[n2/2+cn2*(x1 + n1*(x0))][1]
-                                                =-deltamk[n2/2+cn2*(i1 + n1*(i0))][1];		//modified by Aniket
+						=-deltamk[n2/2+cn2*(i1 + n1*(i0))][1];		//modified by Aniket
 					}
 				}
 			}
@@ -729,6 +728,14 @@ int main(void)
 	fout.close();
 
 	delete [] galdata;
+
+	fftw_destroy_plan(Pfftw_c2r);
+	fftw_destroy_plan(mPfftw_c2r);	
+
+	fftw_destroy_plan(vx_r2c);
+	fftw_destroy_plan(vx_c2r);
+	fftw_destroy_plan(vy_c2r);
+	fftw_destroy_plan(vz_c2r);
 
 	return 0;
 }

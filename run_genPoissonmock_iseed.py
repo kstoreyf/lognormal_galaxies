@@ -1,4 +1,4 @@
-#!/usr/bin/env python26
+#!/usr/bin/env python
 #============================================================================
 # This is the Python script of calculating the power spectrum from the
 # mock galaxy catalogue generated in /genmock folder.
