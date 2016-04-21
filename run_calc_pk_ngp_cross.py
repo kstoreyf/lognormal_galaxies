@@ -1,4 +1,4 @@
-#!/usr/bin/env python26
+#!/usr/bin/env python
 #============================================================================
 # This is the Python script of calculating the power spectrum from the
 # mock galaxy catalogue generated in /genmock folder.
@@ -132,6 +132,21 @@ losz = 0	# line-of-sight direction of z
 
 lmax=4          # lmax for reconstructing the leakage (the output pk file will contain k, pmono, pquad, and phexa, so lmax>=4)
 imulfname='coupling/imul_Lx'+str(Lx)+'_Ly'+str(Ly)+'_Lz'+str(Lz)+'_nmax'+str(nmax)+'_kbin'+str(kbin)+'_kmax'+str(kmax)+'_lmax'+str(lmax)+'.bin'     # input inverse mu-leakage matrix file; if it does not exist, the code will compute and output it
+
+# check the directory:
+coupling_dir = 'coupling'
+cross_pk_dir = 'cross_pk'
+try:
+	os.mkdir(coupling_dir)
+except:
+	print 'Directory '+coupling_dir+' exist!'
+try:
+	os.mkdir(cross_pk_dir)
+except:
+	print 'Directory '+cross_pk_dir+' exist!'
+
+
+
 
 random.seed(iseed)
 print 'iseed=',iseed
