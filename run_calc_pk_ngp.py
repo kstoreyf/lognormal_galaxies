@@ -1,4 +1,4 @@
-#!/usr/bin/env python26
+#!/usr/bin/env python
 #============================================================================
 # This is the Python script of calculating the power spectrum from the
 # mock galaxy catalogue generated in /genmock folder.
@@ -138,7 +138,7 @@ imulfname='coupling/imul_Lx'+str(Lx)+'_Ly'+str(Ly)+'_Lz'+str(Lz)+'_nmax'+str(nma
 coupling_dir = 'coupling'
 pk_dir = 'pk'
 try:
-	os.mkdir(doupling_dir)
+	os.mkdir(coupling_dir)
 except:
 	print 'Directory '+coupling_dir+' exist!'
 
