@@ -548,7 +548,7 @@ int main(void)
 	}
 	// output to file
 	densityout.seekp(0);							//modified by Aniket
-	densityout.write((char*) deltar, sizeof(double) * n0 * n1 * cn22);	//modified by Aniket
+	densityout.write((char*) deltamr, sizeof(double) * n0 * n1 * cn22);	//modified by Aniket
 	densityout.close();							//modified by Aniket
 
 	// renormalize the density field as
