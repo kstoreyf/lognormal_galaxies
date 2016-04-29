@@ -78,8 +78,11 @@ int main(void)
 
 	double *kt = new double[npkt], *pkt = new double[npkt];
 	std::ifstream rf(pkfname.c_str()); assert(rf.is_open());
-	for(int i=0; i<npkt; i++)
-	rf >> kt[i] >> pkt[i];
+    
+    double pk2;
+	for(int i=0; i<npkt; i++){
+	rf >> kt[i] >> pkt[i] >> pk2;
+    }
 	rf.close();
 	gsl_interp_accel *acc1=gsl_interp_accel_alloc();
         gsl_spline *spline1=gsl_spline_alloc(gsl_interp_cspline, npkt);

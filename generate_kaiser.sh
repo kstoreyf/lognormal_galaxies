@@ -9,29 +9,25 @@ $KMAX
 eof
 }
 
-function calc_pk {					
-RMAX=$1					
-aux_codes/calc_pk << eof		
+function calc_pk {
+RMAX=$1
+aux_codes/calc_pk << eof
 xi_gm_kmax19.dat
 2
 1 2
 1.0
-$RMAX					
-eof						
-}						
+$RMAX
+eof
+}					
 
 function discretize_pk {
 LORDER=$1
 aux_codes/discretize_pk << eof
 pk_kaiser.dat
 430
-3
-1 $LORDER
 0.1 1.455
 pkt_kaiser_$LORDER.dat
-3666
-1486
-734
+3666 1486 734
 1024
 eof
 }
