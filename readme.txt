@@ -10,8 +10,8 @@
 - (v4) Generate velocities from the matter density field, instead of the galaxy density field divided by the linear bias, by Aniket Agrawal, March 4, 2016
 - (v4.1) New Makefile [by Ryu Makiya], making it easier to change compilers etc, and re-packaged with cleaned python scripts, March 30, 2016
 - (v5) By Ryu Makiya, Sep 04, 2016.
-	-- Add new python script, run.py, which executes the all steps of the simulation
-	-- Includes a new option of estimating the power spectrum, in which the power spectrum is estimated in the cubic box
+	-- Added new python script, run.py, enabling to execute the all steps of the simulation all at once 
+	-- Includes a new option for the estimation of the power spectrum, in which the Pk is estimated in the cubic box
 	   which is large enough to emcompass the whole survey region. (set calc_mode_pk = 1 in .ini file to use it)
 
 This package consists of the following steps:
@@ -134,9 +134,12 @@ In this case code will ask you the input parameters.
 
 	When all of los parameters, losx, losy and losz, are equal to 0, the real-space power spectra are calculated. 
 	When one of them is equal to 1, the positions of galaxies are shifted by the velocity in that direction. 
-	AT MOST one of them should be equal to 1 - do not set more than one components to be 1!
+	AT MOST one of them should be equal to 1 - do not set more than one components to be 1! 
 
-5) To check the results, compute some number of real-space monopole power spectra, average them, and compare the average with the input matter power spectrum times the bias squared. You may find a deviation on small scales due to the resolution effect of Fourier meshes, but it should reproduce the input power spectrum very precisely on large scales.
+
+5) To check the results, compute some number of real-space monopole power spectra, average them, and compare the average with the input matter power spectrum times the bias squared. 
+You may find a deviation on small scales due to the resolution effect of Fourier meshes, but it should reproduce the input power spectrum very precisely on large scales.
+Note: In the cubic mode (calc_mode_pk == 1), the estimated power spectrum is automatically convolved with the survey geometry function Wk, thus you should take into account the effect of Wk when comparing it with the input matter power spectrum. 
 The first few bins may return "nan", but do not worry about them.
 
 6) To compute the predictions for the monopole and quadrupole of the redshift space power spectrum in Kaiser limit, the cross correlation function and the cross power spectrum between generated galaxy and matter density fields are needed. We also need to average the theoretical power spectrum over the same Fourier grids as in the measurements. To do this, there are Python wrappers such as "run_calc_pk.py", "run_calc_xi_gm.py", "run_discretize_pk.py", and "run_kaiser_pk.py". The details of how to run these codes are described in a readme file in "aux_codes".
