@@ -1,15 +1,16 @@
 # C++ compiler
 CXX = g++
 # Fortran90 compiler
-FC = g95
+FC = gfortran
 # Location of the GSL library
-GSL_HOME = /opt/local
+GSL_HOME = /usr/local
 # Location of the FFTW-3
-FFTW_HOME = /opt/local
+FFTW_HOME = /usr/local
 # Location of "omp.h"
-OMP_INC = /usr/local/lib/gcc/x86_64-apple-darwin13.1.0/4.9.0/include/
+OMP_INC = /usr/local/lib/gcc/5/gcc/x86_64-apple-darwin15.2.0/5.3.0/include/
 # Flag to link openmp
 OMP_FLAG = -fopenmp
+#OMP_FLAG = 
 # Additional links to library [like -static if needed]
 ADD_LDFLAGS =
 
