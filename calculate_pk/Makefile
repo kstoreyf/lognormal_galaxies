@@ -12,7 +12,7 @@ TARGET= calc_pk_const_los_ngp
 .cpp.o:
 	$(CXX) -c $(CXXFLAGS) $< -o $@ $(INC)
 default: $(TARGET)
-calc_pk_const_los_ngp: matrix_inversion.o calc_pk_const_los_ngp_v2.o
+calc_pk_const_los_ngp: matrix_inversion.o calc_pk_const_los_ngp.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LINK) -lfftw3_threads -lpthread -lfftw3 -lm $(LDFLAGS)
 clean:
 	rm -f *.o *~

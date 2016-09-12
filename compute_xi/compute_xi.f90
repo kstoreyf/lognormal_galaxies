@@ -14,24 +14,28 @@ PROGRAM Compute_Xi
   double precision :: linear_pk
   double precision :: dk,factor,dummy
   double precision :: pk
-  character(len=128) :: filename
+  character(len=128) :: input_pk_fname, ofile_prefix, arg
   integer :: n,i,j,nrad=750
   external linear_pk
+
+  call ReadParams
+
   ! maximum wavenumber to which P(k) is integrated is set to be 3 times
   ! 1/(the smoothing length). Use a larger value for more accurate results.
   kmax_ov_h=3d0/sigma_smooth
+
   ! read in linear P(k)
-  filename='wavenumber_pk.txt'
-  n=1037    ! # of lines in the file
-  CALL open_linearpk(filename,n)
-  open(11,file=filename,status='old')
+  CALL open_linearpk(input_pk_fname,n)
+  open(11,file=input_pk_fname,status='old')
   read(11,*)k0_ov_h,dummy
   close(11)
+
   k_ov_h=k0_ov_h
   ALLOCATE(xi(nrad),Rh(nrad))
   xi=0d0
   dk=1d-4
   Rh=0d0
+
   do while (k_ov_h<=kmax_ov_h)
      pk=linear_pk(k_ov_h)*exp(-(k_ov_h*sigma_smooth)**2d0)
      factor=(k_ov_h)**2d0*dk/(2d0*3.1415926535d0**2d0) ! h^3 Mpc^-3
@@ -53,13 +57,39 @@ PROGRAM Compute_Xi
      enddo
      k_ov_h=k_ov_h+dk
   enddo
+
   CALL close_linearpk
+
   close(11)
+
   ! write out the result
-  open(2,file='Rh_xi.txt',status='unknown')
+  open(2,file='./data/inputs/'//trim(ofile_prefix)//'_Rh_xi.txt',status='unknown')
   do i=1,nrad
      write(2,'(2E16.5)')Rh(i),xi(i)
   enddo
   close(2)
+
   DEALLOCATE(xi,Rh)
+!!$======================================================================
+CONTAINS
+    SUBROUTINE ReadParams
+        ! read input and output file names
+        IF (iargc() == 0) THEN
+            print '(A,$)', '> enter the prefix of output file name: '
+            read *, ofile_prefix 
+            print '(A,$)', '> enter the input Pk file name: '
+            read *, input_pk_fname
+            print '(A,$)', '> enter the number of lines in the input Pk file: '
+            read *, n
+        ELSEIF (iargc() == 3) THEN
+            call getarg(1, ofile_prefix)
+            call getarg(2, input_pk_fname)
+            call getarg(3, arg); read(arg,*) n
+        ELSE
+            print *, 'number of input parameters should be 3!!'
+            print *, 'quit'
+            stop
+        ENDIF
+    END SUBROUTINE 
+!!$======================================================================
 END PROGRAM Compute_Xi

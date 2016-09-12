@@ -9,6 +9,10 @@
 - (v3) Added cross-power spectrum code by Donghui Jeong, February 8, 2016
 - (v4) Generate velocities from the matter density field, instead of the galaxy density field divided by the linear bias, by Aniket Agrawal, March 4, 2016
 - (v4.1) New Makefile [by Ryu Makiya], making it easier to change compilers etc, and re-packaged with cleaned python scripts, March 30, 2016
+- (v5) By Ryu Makiya, Sep 04, 2016.
+	-- Added new python script, run.py, enabling to execute the all steps of the simulation all at once 
+	-- Includes a new option for the estimation of the power spectrum, in which the Pk is estimated in the cubic box
+	   which is large enough to emcompass the whole survey region. (set calc_mode_pk = 1 in .ini file to use it)
 
 This package consists of the following steps:
 
@@ -66,94 +70,78 @@ make[1]: Nothing to be done for `default'.
 ----
 or something similar.
 
-3) To generate the input power spectrum [wavenumber_pk.txt], correlation function [Rh_xi.txt], the log-normal galaxy power spectrum [pkG_rmaxNNNN_bYYYY.dat] and the log-normal matter power spectrum [pkG_rmaxNNNN_b1.0.dat] (used to generate velocities), run the shell script "generate_inputs.sh". In this file, edit:
+3)  To run the code, type:
 
-----
-compute_pk2 1.3         # specify the redshift
-compute_pkG 1.455       # specify the linear galaxy bias
-----
+> ./run.py example.ini
 
-to use the desired values of the redshift and galaxy bias. To run the shell script, type
+where exmaple.ini is the exmaple of input file.
+It contains the input parameters of simulation e.g. cosmological parameters, survey geometries, etc.
 
-sh generate_inputs.sh
+You can also run each code independently, for example:
 
-This may take a few minutes, so be patient. The output files contain:
+> ./calculate_pk/calc_pk_const_los_ngp
 
-wavenumber_pk.txt
-- 1st column: wavenumber [h/Mpc]
-- 2nd column: power spectrum [Mpc^3/h^3]
-[you may compare it with eisensteinhubaonu/wavenumber_pk_mnu0.2_z1.3.txt]
+In this case code will ask you the input parameters.
 
-wavenumber_fnu.txt
-- 1st column: wavenumber [h Mpc^-1]
-- 2nd column: logarithmic growth rate - fnu - for massive (massless) neutrinos which varies (does not vary) as a function of 1st column
+4) The resulting files are as follows:
 
-Rh_xi.txt
-- 1st column: comoving separation [Mpc/h]
-- 2nd column: correlation function [dimensionless]
-[you may compare it with compute_xi/Rh_xi_mnu0.2_z1.3.txt]
+	a) Files in data/inputs
+	If your set gen_inputs = False, calculation of following files will be skipped.
 
-pkG_rmaxNNNN_bYYYY.dat [NNNN refers to the maximum separation used, and YYYY refers to the value of the galaxy bias]
-- 1st column: wavenumber [h/Mpc]
-- 2nd column: galaxy power spectrum [Mpc^3/h^3]
-[you may compare it with compute_pkG/pkG_rmax10000_b1.455_mnu0.2_z1.3.dat]
+	exmaple_pk.txt
+	- Input power spectrum
+	- 1st column: wavenumber [h/Mpc]
+	- 2nd column: power spectrum [Mpc^3/h^3]
+	- Note: you can also use the power spectrum computed by external code (e.g. CAMB) by specifying the file name in .ini file
 
-pkG_rmaxNNNN_b1.0.dat [NNNN refers to the maximum separation used]
-- 1st column: wavenumber [h/Mpc]
-- 2nd column: matter power spectrum [Mpc^3/h^3]
+	example_fnu.txt
+	- logarithmic growth rate fnu for massive (massless) neutrinos which varies (does not vary) as a function of k
+	- 1st column: wavenumber [h Mpc^-1]
+	- 2nd column: fnu
 
-4) Open "pkG_rmaxNNNN_bYYYY.dat" and look for negative values in the 2nd column. Remove them by hand if you find any
+	example_Rh_xi.txt
+	- correlation function calculated from input Pk
+	- 1st column: comoving separation [Mpc/h]
+	- 2nd column: correlation function [dimensionless]
 
-5) To generate the log-normal realisation, use a Python wrapper as "python run_genPoissonmock_iseed.py". It will ask for the number of realisations and the initial random number seed. This code is Open-MP parallelised. How to use the parallelisation depends on platforms, but a sample shell script is given in "run_parallel_example.sh". 
+	example_pkG_bYYYY.dat [YYYY refers to the value of the galaxy bias]
+	- power spectrum of the log-normal field, G
+	- 1st column: wavenumber [h/Mpc]
+	- 2nd column: galaxy power spectrum [Mpc^3/h^3]
 
-The important parameters to specify in "run_genPoissonmock_iseed.py" are:
-----
-# cosmological parameters
-Omegam=0.272            # Omega matter for computing the velocity field
-Omegade=1-Omegam
-zz=1.3                  # redshift for computing the velocity field
-aHz=100.*pow(Omegam*pow(1.+zz,3)+Omegade,0.5)/(1.+zz)
+	example_pkG_b1.0.dat
+	- pkG for matter density field
+	- 1st column: wavenumber [h/Mpc]
+	- 2nd column: matter power spectrum [Mpc^3/h^3]
 
-# parameters for lognormal realization
-Ngalaxies = 8345000     # number of galaxy in integer
-bias = 1.455            # linear bias for computing the matter fluctuation and then velocity field (need to be consistent with input P(k))
+	b) Files in data/lognormal
+	For each realization, the code generates the followng two binary files:
+ 
+	example_lognormal_rlz{# of realization}.bin (for galaxy field) 
+	example_density_lognormal_rlz{# of realization}.bin (for density field)
 
-Lx = 3666       # box size in x [h^-1 Mpc]
-Ly = 1486       # box size in y [h^-1 Mpc]
-Lz = 734        # box size in z [h^-1 Mpc]
-Pnmax = 2500   # mesh number of the longest dimension for lognormal realization
-----
+	The positions and velocities of galaxies are stored in those files. To read them, use a sample code "lognormal/read_lognormal.f90". 
+	The larger "Pnmax", the larger the memory that the code requires. Start with a smaller value such as 512 when testing the code.
 
-Make sure to use the same cosmological parameters and the bias parameter that were used to generate the input power spectra.
+	c) Files in data/pk
+	exmaple_pk_rlz{# of realization}.dat
+	- The power spectrum calculated from each mock galaxy catalog
+	- 1st column: wavenumber [h/Mpc]
+	- 2nd column: monopole power spectrum [Mpc^3/h^3]
+	- 3rd column: quadrupole power spectrum [Mpc^3/h^3]
+	- 4th column: hexadecapole power spectrum [Mpc^3/h^3]
+	- 5th column: the number of Fourier modes averaged
 
-The larger "Pnmax", the larger the memory that the code requires. Start with a smaller value such as 512 when testing the code.
+	When all of los parameters, losx, losy and losz, are equal to 0, the real-space power spectra are calculated. 
+	When one of them is equal to 1, the positions of galaxies are shifted by the velocity in that direction. 
+	AT MOST one of them should be equal to 1 - do not set more than one components to be 1! 
 
-The results and the used parameter files will be stored in "lognormal/". The positions and velocities of galaxies are stored in binary files. To read them, use a sample code "read_lognormal.f90" in that directory. Edit Makefile and compile it.
 
-6) To compute the power spectra, use a Python wrapper as "python run_calc_pk_ngp.py". It will ask for the number of realisations and the initial random number seed used for generating log-normal realisations. Use the consistent values. This code does not generate random numbers, but these numbers are used to identify the right filenames. This code is Open-MP parallelised also.
-
-You should choose the parameters in "run_calc_pk_ngp.py" consistently with those in "run_genPoissonmock_iseed.py". The important new parameters are:
-----
-losx = 0        # line-of-sight direction of x (this is a vector, and enter (0,0,0) for real-space calculation)
-losy = 0        # line-of-sight direction of y
-losz = 0        # line-of-sight direction of z
-----
-
-When all of them are equal to 0, the real-space power spectra are calculated. When one of them is equal to 1, the positions of galaxies are shifted by the velocity in that direction. AT MOST one of them should be equal to 1 - do not set more than one components to be 1!
-
-The results and the used parameter files will be stored in "pk/". The format is:
-
-pk_ngp_isN_rlzM_zXXXX_bYYYY_tophat_Rs10_los0.0.0.dat [or los1.0.0 etc depending on which component was set to 1]
-1st column: wavenumber [h/Mpc]
-2nd column: monopole power spectrum [Mpc^3/h^3]
-3rd column: quadrupole power spectrum [Mpc^3/h^3]
-4th column: hexadecapole power spectrum [Mpc^3/h^3]
-5th column: the number of Fourier modes averaged
-
-To check the results, compute some number of real-space monopole power spectra, average them, and compare the average with the input matter power spectrum "wavenumber_pk.txt" times the bias squared. You may find a deviation on small scales due to the resolution effect of Fourier meshes, but it should reproduce the input power spectrum very precisely on large scales.
-
+5) To check the results, compute some number of real-space monopole power spectra, average them, and compare the average with the input matter power spectrum times the bias squared. 
+You may find a deviation on small scales due to the resolution effect of Fourier meshes, but it should reproduce the input power spectrum very precisely on large scales.
+Note: In the cubic mode (calc_mode_pk == 1), the estimated power spectrum is automatically convolved with the survey geometry function Wk, thus you should take into account the effect of Wk when comparing it with the input matter power spectrum. 
 The first few bins may return "nan", but do not worry about them.
 
-7) To compute the predictions for the monopole and quadrupole of the redshift space power spectrum in Kaiser limit, the cross correlation function and the cross power spectrum between generated galaxy and matter density fields are needed. We also need to average the theoretical power spectrum over the same Fourier grids as in the measurements. To do this, there are Python wrappers such as "run_calc_pk.py", "run_calc_xi_gm.py", "run_discretize_pk.py", and "run_kaiser_pk.py". The details of how to run these codes are described in a readme file in "aux_codes".
+6) To compute the predictions for the monopole and quadrupole of the redshift space power spectrum in Kaiser limit, the cross correlation function and the cross power spectrum between generated galaxy and matter density fields are needed. We also need to average the theoretical power spectrum over the same Fourier grids as in the measurements. To do this, there are Python wrappers such as "run_calc_pk.py", "run_calc_xi_gm.py", "run_discretize_pk.py", and "run_kaiser_pk.py". The details of how to run these codes are described in a readme file in "aux_codes".
 A script to generate the Kaiser prediction using all of the codes in aux_codes is provided as "generate_kaiser.sh". The script produces a cross correlation function file(xi_gm_kmax*), a cross power spectrum file(pk_rmax*_b1.dat), a Kaiser P(k) file (pk_kaiser.dat) containing 3 columns - k, P_0(k), P_2(k) and discretized versions of the Kaiser P(k) - pkt_kaiser_2.dat(discretized monopole) and pkt_kaiser_3.dat(discretized quadrupole).
 NOTE : The script assumes filenames and other parameters consistent with the other provided scripts. Please make necessary changes if changing the default scripts.  

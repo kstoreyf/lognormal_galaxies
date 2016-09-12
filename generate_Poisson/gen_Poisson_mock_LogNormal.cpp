@@ -10,7 +10,9 @@
 
 	19 May 2012
 	Donghui Jeong
+	[v2] Generate velocities from the matter density, rather than the galaxy density divided by the linear bias, by Aniket Agrawal, March 2016
 */
+
 #include <iostream>
 #include <string>
 #include <fstream>
@@ -23,50 +25,32 @@
 
 using namespace std;
 
-int main(void)
+int count_num_line(const string &fname);
+
+void ReadParams(int argc, char* argv[]);
+string pkfname;
+string mpkfname;
+double lengthx,lengthy,lengthz;
+int nmax;
+int Ngalaxies;
+double aH;
+string ffname;
+double bias;
+int seed;
+int Pseed;
+int useed;
+string Poissonfname;
+string Densityfname;
+
+int main(int argc, char* argv[])
 {
-	string pkfname;
-	cout << "Please enter the name of the Log-normal Pk file [1st: k in units of h/Mpc; 2nd: P(k) in units of Mpc^3/h^3]" << endl;
-	cin >> pkfname;
-	int ndatapk;
-	cout << "Please enter the number of lines in the Pk file above" << endl;
-	cin >> ndatapk;
-	double lengthx,lengthy,lengthz;
-	cout << "Please enter the length of the Fourier box in x, y, and z:" << endl;
-	cin >> lengthx >> lengthy >> lengthz;
-	int nmax;
-	cout << "Please enter the maximum size of Fourier grid (1D) !" << endl;
-	cin >> nmax;
-	int Ngalaxies;
-	cout << "Please enter the total number of galaxies to sample!" << endl;
-	cin >> Ngalaxies;
-	double aH;
-	cout << "Please enter the velocity to distance factor (aH) [km/s/(Mpc/h)]:" << endl;
-	cin >> aH;
-	double f;
-	cout << "Please enter the logarithmic growth rate:" << endl;
-	cin >> f;
-	double bias;
-	cout << "Please enter the linear bias:" << endl;
-	cin >> bias;
-	int ifilter;
-	cout << "Please enter (0) top-hat (1) Gaussian filter:" << endl;
-	cin >> ifilter;
-	double Rs;
-	cout << "Please enter the smoothing radius:" << endl;
-	cin >> Rs;
-	int seed;
-	cout << "Please enter the random seed for Fourier space sampling!" << endl;
-	cin >> seed;
-	int Pseed;
-	cout << "Please enter the random seed for position of galaxy!" << endl;
-	cin >> Pseed;
-	int useed;
-	cout << "Please enter the random seed for selecting galaxies!" << endl;
-	cin >> useed;
-	string Poissonfname;
-	cout << "Please enter the output file to store the poisson sample!" <<endl;
-	cin >> Poissonfname;
+
+	ReadParams(argc, argv);
+
+	// count the line number of input files
+	int ndatapk = count_num_line(pkfname);
+	int ndatampk = count_num_line(mpkfname);
+	int ndataf = count_num_line(ffname);
 
 // -------------------------------------------------------------------------
 // gsl variables
@@ -138,20 +122,20 @@ int main(void)
 	fftw_init_threads();
 	fftw_plan_with_nthreads(nproc);
 
-	fftw_complex *deltak;// complex array in k-space
-	double *deltar; 	// storage arrays for positions and velocities
+	fftw_complex *deltak, *deltamk;// complex array in k-space	//modified by Aniket
+	double *deltar, *deltamr; 	// storage arrays for positions and velocities	//modified by Aniket
 
 	deltak = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Nc);
+	deltamk = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Nc);	//modified by Aniket
 	// aliasing to the double pointer deltar for in-place tranform
 	deltar = (double *)deltak;
+	deltamr = (double *)deltamk;	//modified by Aniket
 
-	fftw_plan Pfftw_c2r;
+	fftw_plan Pfftw_c2r, mPfftw_c2r;	//modified by Aniket
 	Pfftw_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, deltak, deltar, FFTW_ESTIMATE);
-//	fftw_plan Pfftw_r2c; // r2c is used only for the testing purpose.
-//	Pfftw_r2c = fftw_plan_dft_r2c_3d(n0, n1, n2, deltar, deltak, FFTW_ESTIMATE);
+	mPfftw_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, deltamk, deltamr, FFTW_ESTIMATE);	//modified by Aniket
 
-//	declare velocity variables
-
+	//	declare velocity variables
 	fftw_complex *vxk;
 	fftw_complex *vyk;
 	fftw_complex *vzk;
@@ -175,10 +159,12 @@ int main(void)
 	fftw_plan vz_c2r;
 	vz_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, vzk, vzr, FFTW_ESTIMATE);
 
-/*-------------------------------------------------------------------------*/
-/* opening and reading transfer function file                              */
-/*-------------------------------------------------------------------------*/
+/*-----------------------------------------------------------------------------------------------------------------------------*/
+/* opening and reading transfer function file, matter power spectrum and logarithimic growth rate                              */
+/*-----------------------------------------------------------------------------------------------------------------------------*/
 	interpol pk(pkfname,ndatapk,2,1,2,true,true);
+	interpol mpk(mpkfname, ndatampk, 2,1,2,true,true);	//modified by Aniket
+	interpol f(ffname, ndataf, 2,1,2,true,true);		//modified by Aniket
 
 /*-------------------------------------------------------------------------*/
 /* Generating the mock density field in k-space                            */
@@ -187,6 +173,7 @@ int main(void)
 
 	r  = gsl_rng_alloc(rt);
 	gsl_rng_set(r,seed);
+
 
 	// First, generate the mock density field for 
 	// deltak(0:n0-1,0:n1-1,1:cn2-2) when n2 is even
@@ -209,10 +196,14 @@ int main(void)
 				double gauss = gsl_ran_gaussian(r,1.0);
 				deltak[i2 + cn2*(i1 + n1*(i0))][0]
 				=gauss*sqrt(0.5*pk.value(kvalue)*volume);
+				deltamk[i2+cn2*(i1 + n1*(i0))][0]
+				=gauss*sqrt(0.5*mpk.value(kvalue)*volume);	//modified by Aniket
 
 				gauss = gsl_ran_gaussian(r,1.0);
 				deltak[i2 + cn2*(i1 + n1*(i0))][1]
 				=gauss*sqrt(0.5*pk.value(kvalue)*volume);
+				deltamk[i2+cn2*(i1 + n1*(i0))][1]
+				=gauss*sqrt(0.5*mpk.value(kvalue)*volume);	//modified by Aniket
 			}
 		}
 	}
@@ -263,25 +254,36 @@ int main(void)
 				if(i0==0 && i1==0){
 					deltak[0][0] = 0.;	// DC mode = 0 'cause <delta>=0
 					deltak[0][1] = 0.;
+					deltamk[0][0] = 0.;	//modified by Aniket
+					deltamk[0][1] = 0.;	//modified by Aniket
 					// For even n2, generate the real number thing deltak(0,0,n2/2)
 					if(!(n2%2)){
 						double gauss = gsl_ran_gaussian(r,1.0);
 						deltak[n2/2+cn2*(i1 + n1*(i0))][0]
 						=gauss*sqrt(pk.value(kvalue1)*volume);
+						deltamk[n2/2+cn2*(i1 + n1*(i0))][0]
+                                                =gauss*sqrt(mpk.value(kvalue1)*volume);		//modified by Aniket
 						deltak[n2/2+cn2*(i1 + n1*(i0))][1] = 0.;
+						deltamk[n2/2+cn2*(i1 + n1*(i0))][1] = 0.;	//modified by Aniket
 					}
 				}
 				else{ // Nyquist frequency modes are real.
 					double gauss = gsl_ran_gaussian(r,1.0);
 					deltak[cn2*(i1 + n1*(i0))][0]
 					=gauss*sqrt(pk.value(kvalue0)*volume);
+					deltamk[cn2*(i1+n1*(i0))][0]
+                                        =gauss*sqrt(mpk.value(kvalue0)*volume);			//modified by Aniket
 					deltak[cn2*(i1 + n1*(i0))][1] = 0.;
+					deltamk[cn2*(i1+n1*(i0))][1] = 0.;			//modified by Aniket
 					// For even n2, repeat the same procedure for i2=n2/2 
 					if(!(n2%2)){
 						gauss = gsl_ran_gaussian(r,1.0);
 						deltak[n2/2+cn2*(i1 + n1*(i0))][0]
 						=gauss*sqrt(pk.value(kvalue1)*volume);
+						deltamk[n2/2+cn2*(i1 + n1*(i0))][0]
+                                                =gauss*sqrt(mpk.value(kvalue1)*volume);		//modified by Aniket
 						deltak[n2/2+cn2*(i1 + n1*(i0))][1] = 0.;
+						deltamk[n2/2+cn2*(i1 + n1*(i0))][1] = 0.;	//modified by Aniket
 					}
 				}
 			}
@@ -292,27 +294,41 @@ int main(void)
 					double gauss = gsl_ran_gaussian(r,1.0);
 					deltak[cn2*(i1 + n1*(i0))][0]
 					=gauss*sqrt(0.5*pk.value(kvalue0)*volume);
+					deltamk[cn2*(i1 + n1*(i0))][0]
+					=gauss*sqrt(0.5*mpk.value(kvalue0)*volume);		//modified by Aniket
 					gauss = gsl_ran_gaussian(r,1.0);
 					deltak[cn2*(i1 + n1*(i0))][1]
 					=gauss*sqrt(0.5*pk.value(kvalue0)*volume);
+					deltamk[cn2*(i1 + n1*(i0))][1]
+					=gauss*sqrt(0.5*mpk.value(kvalue0)*volume);		//modified by Aniket
 					// assign the complex conjugate to
 					// deltak(x0,x1,0)
 					deltak[cn2*(x1 + n1*(x0))][0]=deltak[cn2*(i1 + n1*(i0))][0];
+					deltamk[cn2*(x1 + n1*(x0))][0]=deltamk[cn2*(i1 + n1*(i0))][0];	//modified by Aniket
 					deltak[cn2*(x1 + n1*(x0))][1]=-deltak[cn2*(i1 + n1*(i0))][1];
+					deltamk[cn2*(x1 + n1*(x0))][1]=-deltamk[cn2*(i1 + n1*(i0))][1];	//modified by Aniket
 					// For even n2, repeat the same procedure for i2=n2/2 
 					if(!(n2%2)){
 						gauss = gsl_ran_gaussian(r,1.0);
 						deltak[n2/2+cn2*(i1 + n1*(i0))][0]
 						=gauss*sqrt(0.5*pk.value(kvalue1)*volume);
+						deltamk[n2/2+cn2*(i1 + n1*(i0))][0]
+						=gauss*sqrt(0.5*mpk.value(kvalue1)*volume);	//modified by Aniket
 
 						gauss = gsl_ran_gaussian(r,1.0);
 						deltak[n2/2+cn2*(i1 + n1*(i0))][1]
 						=gauss*sqrt(0.5*pk.value(kvalue1)*volume);
+						deltamk[n2/2+cn2*(i1 + n1*(i0))][1]
+						=gauss*sqrt(0.5*mpk.value(kvalue1)*volume);	//modified by Aniket
 
 						deltak[n2/2+cn2*(x1 + n1*(x0))][0]
 						=deltak[n2/2+cn2*(i1 + n1*(i0))][0];
+						deltamk[n2/2+cn2*(x1 + n1*(x0))][0]
+						=deltamk[n2/2+cn2*(i1 + n1*(i0))][0];		//modified by Aniket
 						deltak[n2/2+cn2*(x1 + n1*(x0))][1]
 						=-deltak[n2/2+cn2*(i1 + n1*(i0))][1];
+						deltamk[n2/2+cn2*(x1 + n1*(x0))][1]
+						=-deltamk[n2/2+cn2*(i1 + n1*(i0))][1];		//modified by Aniket
 					}
 				}
 			}
@@ -377,6 +393,7 @@ int main(void)
 	// c2r Fourier transform to generate the real space density map
 	cout << "Doing FFT for density field." << endl;
 	fftw_execute(Pfftw_c2r);
+	fftw_execute(mPfftw_c2r);	//modified by Aniket
 //	cout << "Finished." << endl;
 //	fftw_free(deltak);
 
@@ -387,16 +404,19 @@ int main(void)
 
 	// Normalize the Fourier output to get the density field
 	// also calculate the density variance
-	long double averageG = 0.;
-	long double sigmasqG = 0.;
+	long double averageG = 0., averagemG = 0.;	//modified by Aniket
+	long double sigmasqG = 0., sigmasqmG = 0.;	//modified by Aniket
 	for(int i0 = 0; i0 < n0; i0++){
 		for(int i1 = 0; i1 < n1; i1++){
 			for(int i2 = 0; i2 < n2; i2++){
 				int ijk = i2 + cn22*(i1 + n1*(i0));
 				// normalizing deltar
 				deltar[ijk] = deltar[ijk]*d3k;
+				deltamr[ijk] = deltamr[ijk]*d3k;			//modified by Aniket
 				averageG += (long double)deltar[ijk];
 				sigmasqG += (long double)deltar[ijk]*deltar[ijk];
+				averagemG += (long double)deltamr[ijk];			//modified by Aniket
+				sigmasqmG += (long double)deltamr[ijk]*deltamr[ijk];	//modified by Aniket
 			}
 		}
 	}
@@ -406,8 +426,16 @@ int main(void)
 	sigmasqG = sigmasqG/(long double)(Ntotal) - averageG*averageG;
 	cout<<"Average of Log-normal density field  :"<<averageG<<endl;
 	cout<<"Variance of Log-normal density field :"<<sqrt(sigmasqG)<<endl;
+	
+	cout<<"Average of matter Log-normal density field :"<<averagemG<<endl;		//modified by Aniket
+	cout<<"Variance of matter Log-normal density field :"<<sqrt(sigmasqmG)<<endl;	//modified by Aniket
+	averagemG = averagemG/(long double)(Ntotal);					//modified by Aniket
+	sigmasqmG = sigmasqmG/(long double)(Ntotal) - averagemG*averagemG;		//modified by Aniket
+	cout<<"Average of matter Log-normal density field :"<<averagemG<<endl;		//modified by Aniket
+	cout<<"Variance of matter Log-normal density field :"<<sqrt(sigmasqmG)<<endl;	//modified by Aniket
+	
 
-	long double GtoLN = exp(-0.5*sigmasqG);
+	long double GtoLN = exp(-0.5*sigmasqG), mGtoLN = exp(-0.5*sigmasqmG);		//modified by Aniket
 	double deltar_max=0.;
 	double deltar_min=100.;
 	long double avg_dr = 0;
@@ -422,13 +450,15 @@ int main(void)
 				int ijk = i2 + cn22*(i1 + n1*(i0));
 				// Transform to the density field
 				deltar[ijk] = GtoLN*exp(deltar[ijk]) - 1.;
+				deltamr[ijk] = mGtoLN*exp(deltamr[ijk]) - 1.;		//modified by Aniket
 				long double deltar_l = (long double)(deltar[ijk]);
 				avg_dr += deltar_l;
 				var_dr += deltar_l*deltar_l;
 				// calculate the maximum deltar
 				deltar_max = ((deltar_max > deltar[ijk])? deltar_max:deltar[ijk]);
 				deltar_min = ((deltar_min < deltar[ijk])? deltar_min:deltar[ijk]);
-				vxr[ijk] = deltar[ijk];
+				vxr[ijk] = deltamr[ijk];				//modified by Aniket
+//				vxr[ijk] = deltar[ijk];
 //				int indx = int((deltar[ijk]+1.)/0.1);
 //				if (indx>2009) indx = 2009;
 //				deltar_hist[indx] ++;
@@ -462,10 +492,7 @@ int main(void)
 			for(int i2 = 0; i2 < cn2; i2++){
 				double k2 = kF2 * double(i2);
 				double k = sqrt(k0*k0 + k1*k1 + k2*k2);
-				double kRs = k*Rs;
-				double kRs2 = kRs*kRs;
-				double filter = (ifilter==1 || Rs==0)? exp(-kRs2/2.) : 3.*(sin(kRs)/kRs2/kRs-cos(kRs)/kRs2);
-				double const_fac = (k>0)? aH/k/k/bias*d3r*filter : 0;
+				double const_fac = (k>0)? aH/k/k*d3r*(f.value(k)) : 0;	//modified by Aniket - smoothing doesn't seem to work
 
 				int indx = i2+cn2*(i1+n1*i0);
 				double deltakr = vxk[indx][0]*const_fac;
@@ -491,14 +518,14 @@ int main(void)
 // Output density grid to get the density power spectrum
 /*-------------------------------------------------------------------------*/	
 //	string densityfname = "mock_density_grid.bin";
-//	ofstream densityout(densityfname.c_str(),ios::binary);
-//	if(!densityout.is_open()){
-//		cerr<<"Output file cannot be opened!"<<endl;
-//	}
+	ofstream densityout(Densityfname.c_str(),ios::binary);			//modified by Aniket
+	if(!densityout.is_open()){
+		cerr<<"Output file cannot be opened!"<<endl;
+	}
 	// output to file
-//	densityout.seekp(0);
-//	densityout.write((char*) deltar, sizeof(double) * n0 * n1 * cn22);
-//	densityout.close();
+	densityout.seekp(0);							//modified by Aniket
+	densityout.write((char*) deltamr, sizeof(double) * n0 * n1 * cn22);	//modified by Aniket
+	densityout.close();							//modified by Aniket
 
 	// renormalize the density field as
 	// density = (1+density)/(1+density_max)
@@ -564,9 +591,9 @@ int main(void)
 //				int Nthiscell_int = (int) floor(Nthiscell);
 //				Nthiscell = Nthiscell - Nthiscell_int;
 
-				vx = vxr[ijk]*d3k*f;
-				vy = vyr[ijk]*d3k*f;
-				vz = vzr[ijk]*d3k*f;
+				vx = vxr[ijk]*d3k;	//modified by Aniket
+				vy = vyr[ijk]*d3k;	//modified by Aniket
+				vz = vzr[ijk]*d3k;	//modified by Aniket
 
 /*				avg_vx += vx;
 				avg_vy += vy;
@@ -625,6 +652,7 @@ int main(void)
 	cout << "Total number of " << nPoisson << " galaxies are generated!" << endl;
 
 	fftw_free(deltak);
+	fftw_free(deltamk);	//modified by Aniket
 	fftw_free(vxk);
 	fftw_free(vyk);
 	fftw_free(vzk);
@@ -677,5 +705,108 @@ int main(void)
 
 	delete [] galdata;
 
+	fftw_destroy_plan(Pfftw_c2r);
+	fftw_destroy_plan(mPfftw_c2r);	
+
+	fftw_destroy_plan(vx_r2c);
+	fftw_destroy_plan(vx_c2r);
+	fftw_destroy_plan(vy_c2r);
+	fftw_destroy_plan(vz_c2r);
+
 	return 0;
+}
+
+bool is_int(const string &str){
+    return str.find_first_not_of("0123456789") == string::npos;
+}
+
+bool is_float(const string &str){
+	signed int dec_point = str.find_first_of(".");
+	if ((dec_point >= 0) and (str.find(".",dec_point+1) == string::npos)){
+		   return str.find_first_not_of("0123456789.") == string::npos;
+	}else{
+		return 0;
+	}
+}
+
+bool check_int(const string &str, const string &param_name){
+	if(is_int(str)){
+		return 1;
+	}else{
+		cout << param_name <<" should be integer!"<<endl;
+		exit(1);
+	}
+}
+
+bool check_float(const string &str, const string &param_name){
+	if(is_float(str)){
+		return 1;
+	}else{
+		cout << param_name <<" should be float!"<<endl;
+		exit(1);
+	}
+}
+
+int count_num_line(const string &fname){
+	int i = 0;
+	ifstream ifs(fname.c_str());
+	if(ifs){
+		string line;
+		while(true){
+			getline(ifs,line);
+	        if(ifs.eof()) break;
+	        i++;
+		}
+	}
+	return i;
+}
+
+void ReadParams(int argc, char* argv[]){
+	if (argc == 1){
+		cout << "Please enter the name of the Log-normal Pk file [1st: k in units of h/Mpc; 2nd: P(k) in units of Mpc^3/h^3]" << endl;
+		cin >> pkfname;
+		cout << "Please enter the name of the Log-normal matter Pk file [1st: k in units of h/Mpc; 2nd: P(k) in units of Mpc^3/h^3]" << endl;
+		cin >> mpkfname;
+		cout << "Please enter the length of the Fourier box in x, y, and z:" << endl;
+		cin >> lengthx >> lengthy >> lengthz;
+		cout << "Please enter the maximum size of Fourier grid (1D) !" << endl;
+		cin >> nmax;
+		cout << "Please enter the total number of galaxies to sample!" << endl;
+		cin >> Ngalaxies;
+		cout << "Please enter the velocity to distance factor (aH) [km/s/(Mpc/h)]:" << endl;
+		cin >> aH;
+		cout << "Please enter the logarithmic growth rate file [1st: k in units of h/Mpc; 2nd: f(k,z)]:" << endl;
+		cin >> ffname;
+		cout << "Please enter the linear bias:" << endl;
+		cin >> bias;
+		cout << "Please enter the random seed for Fourier space sampling!" << endl;
+		cin >> seed;
+		cout << "Please enter the random seed for position of galaxy!" << endl;
+		cin >> Pseed;
+		cout << "Please enter the random seed for selecting galaxies!" << endl;
+		cin >> useed;
+		cout << "Please enter the output file to store the poisson sample!" <<endl;
+		cin >> Poissonfname;
+		cout << "Please enter the output file to store density!" << endl;
+		cin >> Densityfname;
+	}else if (argc == 16){
+		pkfname = argv[1];
+		mpkfname = argv[2];
+		if(check_float(argv[3],"lengthx")) lengthx = atof(argv[3]);
+		if(check_float(argv[4],"lengthy")) lengthy = atof(argv[4]);
+		if(check_float(argv[5],"lengthz")) lengthz = atof(argv[5]);
+		if(check_int(argv[6],"nmax")) nmax = atoi(argv[6]);
+		if(check_int(argv[7],"Ngalaxies")) Ngalaxies = atoi(argv[7]);
+		if(check_float(argv[8],"aH")) aH = atof(argv[8]);
+		ffname = argv[9];
+		if(check_float(argv[10],"bias")) bias = atof(argv[10]);
+		if(check_int(argv[11],"seed")) seed = atoi(argv[11]);
+		if(check_int(argv[12],"Pseed")) Pseed = atoi(argv[12]);
+		if(check_int(argv[13],"useed")) useed = atoi(argv[13]);
+		Poissonfname = argv[14];
+		Densityfname = argv[15];
+	}else{
+		cout << "number of arguments should be 0 or 15!!!" << endl;
+		exit(1);
+	}
 }

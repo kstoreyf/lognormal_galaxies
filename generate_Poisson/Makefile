@@ -12,7 +12,7 @@ TARGET= gen_Poisson_mock_LogNormal
 .cpp.o:
 	$(CXX) -c $(CXXFLAGS) $< -o $@ $(INC)
 default: $(TARGET)
-gen_Poisson_mock_LogNormal: spline.o gen_Poisson_mock_LogNormal_v2.o
+gen_Poisson_mock_LogNormal: spline.o gen_Poisson_mock_LogNormal.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LINK) -lfftw3_threads -lpthread -lfftw3 -lm $(LDFLAGS)
 clean:
 	rm -f *.o *~
