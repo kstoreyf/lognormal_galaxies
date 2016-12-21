@@ -15,7 +15,10 @@ PROGRAM Compute_Xi
   double precision :: dk,factor,dummy
   double precision :: pk
   character(len=128) :: input_pk_fname, ofile_prefix, arg
-  integer :: n,i,j,nrad=750
+  integer :: n,i,j,nrad=1000
+  integer :: lenaw=10000, jj
+  double precision, allocatable :: aw(:)
+  double precision :: answer = 0.d0, err, r
   external linear_pk
 
   call ReadParams
@@ -36,26 +39,18 @@ PROGRAM Compute_Xi
   dk=1d-4
   Rh=0d0
 
-  do while (k_ov_h<=kmax_ov_h)
-     pk=linear_pk(k_ov_h)*exp(-(k_ov_h*sigma_smooth)**2d0)
-     factor=(k_ov_h)**2d0*dk/(2d0*3.1415926535d0**2d0) ! h^3 Mpc^-3
-     do j=1,nrad
-        if(Rh(j)<=10d0)then
-           Rh(j)=0.d0+0.1d0*dble(j-1)
-        elseif (Rh(j)<=500d0)then
-           Rh(j)=Rh(j-1)+1d0
-        elseif (Rh(j)<=1d3)then
-           Rh(j)=Rh(j-1)+5d0
-        else
-           Rh(j)=dexp(dlog(Rh(j-1))+0.046d0)
-        endif
-        if(Rh(j)==0d0)then
-           xi(j)=xi(j)+pk*factor
-        else
-           xi(j)=xi(j)+pk*factor*sin(k_ov_h*Rh(j))/(k_ov_h*Rh(j))
-        endif
-     enddo
-     k_ov_h=k_ov_h+dk
+  allocate(aw(lenaw))
+  CALL intdeoini(lenaw, 1d-307, 1d-8, aw)
+
+  do j=1,nrad
+    Rh(j) = 10.d0**(-3.d0+8.d0*(dble(j)/nrad))
+  end do
+
+  do j=1,nrad
+    r = Rh(j)
+    if (r > 0.d0) then
+      CALL intdeo(int_pk_func, k0_ov_h, r, aw, xi(j), err)
+    endif
   enddo
 
   CALL close_linearpk
@@ -72,6 +67,25 @@ PROGRAM Compute_Xi
   DEALLOCATE(xi,Rh)
 !!$======================================================================
 CONTAINS
+!!$======================================================================
+    DOUBLE PRECISION FUNCTION int_pk_func(k) result(ans)
+        DOUBLE PRECISION, INTENT(IN) :: k
+        DOUBLE PRECISION :: pk
+
+        if (k < kmax_ov_h) then
+           !pk=linear_pk(k)
+           pk=linear_pk(k)*exp(-(k*sigma_smooth)**2d0)
+        else
+           pk = 0.0
+        endif
+
+        if(r == 0.d0)then
+            ans = pk*k**2d0/(2d0*3.1415926535d0**2d0) ! h^3 Mpc^-3
+        else
+            ans = pk*sin(k*r)/(k*r)*k**2d0/(2d0*3.1415926535d0**2d0) ! h^3 Mpc^-3
+        endif
+    END FUNCTION
+!!$======================================================================
     SUBROUTINE ReadParams
         ! read input and output file names
         IF (iargc() == 0) THEN
