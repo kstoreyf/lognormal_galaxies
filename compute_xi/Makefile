@@ -1,5 +1,5 @@
 FFLAGS	= -O3 
-OBJS	= linearpk.o spline.o hunt.o
+OBJS	= linearpk.o spline.o hunt.o intde2.o
 .SUFFIXES: .f90
 .f90.o: 
 	$(FC) $(FFLAGS) -c $<
