@@ -8,7 +8,6 @@ PROGRAM Compute_Xi
   ! in order to suppress the aliasing (oscillations).   
   ! September 18, 2008: E.Komatsu
   IMPLICIT none
-  double precision :: sigma_smooth=0.1d0 ! h^-1 Mpc
   double precision, allocatable, dimension(:) :: xi,Rh ! h^-1 Mpc
   double precision :: k_ov_h,k0_ov_h,kmax_ov_h ! h Mpc^-1
   double precision :: linear_pk
@@ -23,9 +22,9 @@ PROGRAM Compute_Xi
 
   call ReadParams
 
-  ! maximum wavenumber to which P(k) is integrated is set to be 3 times
-  ! 1/(the smoothing length). Use a larger value for more accurate results.
-  kmax_ov_h=3d0/sigma_smooth
+  ! maximum wavenumber to which P(k) is integrated.
+  ! Use a larger value for more accurate results.
+  kmax_ov_h=30.d0
 
   ! read in linear P(k)
   CALL open_linearpk(input_pk_fname,n)
@@ -73,8 +72,7 @@ CONTAINS
         DOUBLE PRECISION :: pk
 
         if (k < kmax_ov_h) then
-           !pk=linear_pk(k)
-           pk=linear_pk(k)*exp(-(k*sigma_smooth)**2d0)
+           pk=linear_pk(k)
         else
            pk = 0.0
         endif
