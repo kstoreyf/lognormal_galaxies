@@ -104,13 +104,18 @@ In this case code will ask you the input parameters.
 	- 1st column: comoving separation [Mpc/h]
 	- 2nd column: correlation function [dimensionless]
 
-	example_pkG_bYYYY.dat [YYYY refers to the value of the galaxy bias]
+	example_pkG.dat
 	- power spectrum of the log-normal field, G
 	- 1st column: wavenumber [h/Mpc]
 	- 2nd column: galaxy power spectrum [Mpc^3/h^3]
 
-	example_pkG_b1.0.dat
+	example_mpkG.dat
 	- pkG for matter density field
+	- 1st column: wavenumber [h/Mpc]
+	- 2nd column: matter power spectrum [Mpc^3/h^3]
+
+	example_cpkG.dat
+	- galaxy-matter cross pkG
 	- 1st column: wavenumber [h/Mpc]
 	- 2nd column: matter power spectrum [Mpc^3/h^3]
 

@@ -10,18 +10,20 @@ def read_params(ini_fname):
 	ofile_prefix = strip(re.split('\.',ini_fname)[0])
 	params = {'ofile_prefix':ofile_prefix,\
 			  'inp_pk_fname':'', 'xi_fname':'',\
-			  'pkg_fname':'','mpkg_fname':'','f_fname':'',\
+			  'pkg_fname':'','mpkg_fname':'','cpkg_fname':'',\
+			  'f_fname':'',\
 			  'z':0.0,'mnu':0.06,'oc0h2':0.144,\
 			  'ob0h2':0.025,'ns':0.96,\
 			  'lnAs':3.04,'h0':0.678,'w':-1.0,'run':0.0,\
-			  'bias':1.0,'bias_mpkG':1.0,\
+			  'bias':1.0,'bias_mpkG':1.0,'bias_cpkG':1.0,\
 			  'Nrealization':1,\
 			  'Ngalaxies':10000,\
 			  'Lx':500.,'Ly':500.,'Lz':500.,\
 			  'rmax':10000.,'seed':1,\
 			  'Pnmax':1024,'losx':0.,'losy':0.,'losz':0.,\
 			  'kbin':0.01,'kmax':0.,'lmax':4,\
-			  'gen_inputs':False,'run_lognormal':False,'calc_pk':False,\
+			  'gen_inputs':False,'run_lognormal':False,'calc_pk':False,'calc_cpk':False,\
+			  'use_cpkG':0,\
 			  'calc_mode_pk':0,\
 			  'out_dir':'\./data',\
 			  'halofname_prefix':'',\
@@ -52,12 +54,14 @@ def read_params(ini_fname):
 	if params['xi_fname'] == '':
 		params['xi_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_Rh_xi.txt'
 	if params['pkg_fname'] == '':
-		params['pkg_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_pkG_b'+str(params['bias'])+'.dat'
+		params['pkg_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_pkG.dat'
 	if params['mpkg_fname'] == '':
-		if (params['bias_mpkG'] == 1.0):
-			params['mpkg_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_pkG_b1.dat'
+		params['mpkg_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_mpkG.dat'
+	if params['cpkg_fname'] == '':
+		if params['use_cpkG'] == 0:
+			params['cpkg_fname'] = params['mpkg_fname']
 		else:
-			params['mpkg_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_pkG_b'+str(params['bias_mpkG'])+'.dat'
+			params['cpkg_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_cpkG.dat'
 	if params['f_fname'] == '':
 		params['f_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_fnu.txt'
 

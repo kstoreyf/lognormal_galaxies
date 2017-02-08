@@ -7,12 +7,12 @@ CXXFLAGS=$(DEBUG_OR_OPTIMIZE) -Wall -msse3 $(OMP_FLAG)
 LDFLAGS=
 LINK  =-L${FFTW_LIB} -L${GSL_LIB} -lgsl -lgslcblas
 INC   =-I${FFTW_INC} -I${GSL_INC} -I${OMP_INC}
-TARGET= calc_pk_const_los_ngp_cross
+TARGET= calc_cpk_const_los_v2
 .SUFFIXES: .cpp
 .cpp.o:
 	$(CXX) -c $(CXXFLAGS) $< -o $@ $(INC)
 default: $(TARGET)
-calc_pk_const_los_ngp_cross: matrix_inversion.o calc_pk_const_los_ngp_v2_cross.o
+calc_cpk_const_los_v2: matrix_inversion.o calc_cpk_const_los_v2.o
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LINK) -lfftw3_threads -lpthread -lfftw3 -lm $(LDFLAGS)
 clean:
 	rm -f *.o *~

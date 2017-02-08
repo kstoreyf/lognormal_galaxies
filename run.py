@@ -71,14 +71,20 @@ if params['gen_inputs']:
 	args = ['ofile_prefix','inp_pk_fname','len_inp_pk'] # do not change the order
 	exe.run('compute_xi/compute_xi',args,params)
 
-	# pkG
+	# galaxy pkG
 	params['ncol'] = np.size(np.loadtxt(params['xi_fname'])[0,:])
-	args = ['ofile_prefix','xi_fname','ncol','bias','rmax'] # do not change the order
+	args = ['pkg_fname','xi_fname','ncol','bias','rmax'] # do not change the order
 	exe.run('compute_pkG/calc_pkG',args,params)
 
 	# matter pkG
-	args = ['ofile_prefix','xi_fname','ncol','bias_mpkG','rmax'] # do not change the order
+	args = ['mpkg_fname','xi_fname','ncol','bias_mpkG','rmax'] # do not change the order
 	exe.run('compute_pkG/calc_pkG',args,params)
+
+	# galaxy-matter pkG
+	params['bias_cpkG'] = np.sqrt(params['bias_cpkG'])
+	args = ['cpkg_fname','xi_fname','ncol','bias_cpkG','rmax'] # do not change the order
+	exe.run('compute_pkG/calc_pkG',args,params)
+	params['bias_cpkG'] = (params['bias_cpkG'])**2.0
 else:
 	print 'skip: generating input files'
 
@@ -96,7 +102,7 @@ if params['run_lognormal']:
 		params_tmp['Densityfname'] = params['out_dir']+'/lognormal/'+params['ofile_prefix']\
 									+'_density_lognormal_rlz'+str(i)+'.bin'
 
-		args = ['pkg_fname','mpkg_fname','Lx','Ly','Lz','Pnmax','Ngalaxies','aH','f_fname',\
+		args = ['pkg_fname','mpkg_fname','use_cpkG','cpkg_fname','Lx','Ly','Lz','Pnmax','Ngalaxies','aH','f_fname',\
 				'bias','seed1','seed2','seed3','Poissonfname','Densityfname'] # do not change the order
 		exe.run('generate_Poisson/gen_Poisson_mock_LogNormal',args,params_tmp)
 
