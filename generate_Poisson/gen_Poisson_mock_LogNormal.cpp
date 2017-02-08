@@ -23,7 +23,7 @@
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_linalg.h>
 #include <omp.h>
-#include <check_var_type.h>
+#include "check_var_type.h"
 
 using namespace std;
 
