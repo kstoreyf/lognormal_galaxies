@@ -24,6 +24,7 @@ def read_params(ini_fname):
 			  'kbin':0.01,'kmax':0.,'lmax':4,\
 			  'gen_inputs':False,'run_lognormal':False,'calc_pk':False,'calc_cpk':False,\
 			  'use_cpkG':0,\
+                          'output_matter':0,'output_gal':0,\
 			  'calc_mode_pk':0,\
 			  'out_dir':'\./data',\
 			  'halofname_prefix':'',\
@@ -48,7 +49,7 @@ def read_params(ini_fname):
 					else:
 						params[key] = type(params[key])(value)
 
-	# if paams['inp_pk_fname'] is blanck,  use Eisenstein & Hu for input pk
+	# if params['inp_pk_fname'] is blanck,  use Eisenstein & Hu for input pk
 	if params['inp_pk_fname'] == '':
 		params['inp_pk_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_pk.txt'
 	if params['xi_fname'] == '':
@@ -59,7 +60,7 @@ def read_params(ini_fname):
 		params['mpkg_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_mpkG.dat'
 	if params['cpkg_fname'] == '':
 		if params['use_cpkG'] == 0:
-			params['cpkg_fname'] = params['mpkg_fname']
+			params['cpkg_fname'] = params['mpkg_fname'] # dummy
 		else:
 			params['cpkg_fname'] = params['out_dir']+'/inputs/'+params['ofile_prefix']+'_cpkG.dat'
 	if params['f_fname'] == '':

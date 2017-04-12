@@ -63,12 +63,14 @@ exe = executable("exe")
 # generate input files
 if params['gen_inputs']:
 	# input power spectrum
-	args = ['ofile_prefix','om0','ode0','ob0','h0','w','ns','run','As','mnu','z'] # do not change the order
+        params['ofile_eh'] = params['out_dir']+'/inputs/'+params['ofile_prefix']
+	args = ['ofile_eh','om0','ode0','ob0','h0','w','ns','run','As','mnu','z'] # do not change the order
 	exe.run('eisensteinhubaonu/compute_pk',args,params)
 
 	# xi
+        params['ofile_xi'] = params['out_dir']+'/inputs/'+params['ofile_prefix']
 	params['len_inp_pk'] = sum(1 for line in open(params['inp_pk_fname']))
-	args = ['ofile_prefix','inp_pk_fname','len_inp_pk'] # do not change the order
+	args = ['ofile_xi','inp_pk_fname','len_inp_pk'] # do not change the order
 	exe.run('compute_xi/compute_xi',args,params)
 
 	# galaxy pkG
@@ -81,10 +83,11 @@ if params['gen_inputs']:
 	exe.run('compute_pkG/calc_pkG',args,params)
 
 	# galaxy-matter pkG
-	params['bias_cpkG'] = np.sqrt(params['bias_cpkG'])
-	args = ['cpkg_fname','xi_fname','ncol','bias_cpkG','rmax'] # do not change the order
-	exe.run('compute_pkG/calc_pkG',args,params)
-	params['bias_cpkG'] = (params['bias_cpkG'])**2.0
+        if params['use_cpkG'] == 1: 
+            params['bias_cpkG'] = np.sqrt(params['bias_cpkG'])
+            args = ['cpkg_fname','xi_fname','ncol','bias_cpkG','rmax'] # do not change the order
+	    exe.run('compute_pkG/calc_pkG',args,params)
+	    params['bias_cpkG'] = (params['bias_cpkG'])**2.0
 else:
 	print 'skip: generating input files'
 
@@ -102,10 +105,13 @@ if params['run_lognormal']:
 		params_tmp['Densityfname'] = params['out_dir']+'/lognormal/'+params['ofile_prefix']\
 									+'_density_lognormal_rlz'+str(i)+'.bin'
 
-		args = ['pkg_fname','mpkg_fname','use_cpkG','cpkg_fname','Lx','Ly','Lz','Pnmax','Ngalaxies','aH','f_fname',\
-				'bias','seed1','seed2','seed3','Poissonfname','Densityfname'] # do not change the order
+		args = ['pkg_fname','mpkg_fname','use_cpkG','cpkg_fname','Lx','Ly','Lz','Pnmax',\
+                        'Ngalaxies','aH','f_fname','bias','seed1','seed2','seed3','Poissonfname',\
+                        'Densityfname','output_matter','output_gal'] # do not change the order
+#		args = ['pkg_fname','mpkg_fname','use_cpkG','cpkg_fname','Lx','Ly','Lz','Pnmax',\
+#                        'Ngalaxies','aH','f_fname','bias','seed1','seed2','seed3','Poissonfname',\
+#                        'Densityfname'] # do not change the order
 		exe.run('generate_Poisson/gen_Poisson_mock_LogNormal',args,params_tmp)
-
 	p = Pool(params['num_para']) 
 	run = p.map(gen_Poisson,range(params['Nrealization']))
 else:
@@ -133,3 +139,30 @@ if params['calc_pk']:
 	run = p.map(calc_Pk,range(params['Nrealization']))
 else:
 	print 'skip: calculate Pk'
+
+# calculate Pk
+if params['calc_cpk']:
+	def calc_cPk(i):
+		params_tmp = params
+
+		# input file names
+		if (params_tmp['halofname_prefix']) == '':
+			params_tmp['halofname1'] = params['out_dir']+'/lognormal/'+params['ofile_prefix']+'_lognormal_rlz'+str(i)+'.bin'
+		else:
+			params_tmp['halofname1'] = params['out_dir']+'/lognormal/'+params['halofname_prefix']+'_lognormal_rlz'+str(i)+'.bin'
+		params_tmp['halofname2'] = params['out_dir']+'/lognormal/'+params['ofile_prefix']+'_density_lognormal_rlz'+str(i)+'.bin'
+	
+		if (params_tmp['imul_fname']) == '':
+			params_tmp['imul_fname'] = params['out_dir']+'/coupling/'+params['ofile_prefix']+'_coupling.bin'
+		params_tmp['cpk_fname'] = params['out_dir']+'/pk/'+params['ofile_prefix']+'_cpk_rlz'+str(i)+'.dat'
+
+		params_tmp['tmp1'] = 0
+		params_tmp['tmp2'] = 1
+		
+		args = ['halofname1','halofname2','Pnmax','aH','losx','losy','losz','kbin','kmax','lmax','imul_fname','cpk_fname','calc_mode_pk','tmp1','tmp2']
+		exe.run('calculate_cross/calc_cpk_const_los_v2',args,params_tmp)
+
+	p = Pool(params['num_para']) 
+	run = p.map(calc_cPk,range(params['Nrealization']))
+else:
+	print 'skip: calculate cPk'

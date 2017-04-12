@@ -1,3 +1,7 @@
+#include <string>
+
+using namespace std;
+
 bool is_int(const string &str){
     return str.find_first_not_of("0123456789") == string::npos;
 }

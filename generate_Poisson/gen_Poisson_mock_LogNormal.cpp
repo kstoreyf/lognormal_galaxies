@@ -18,12 +18,12 @@
 #include <fstream>
 #include <cmath>
 #include <fftw3.h>
-#include "spline.h"
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_linalg.h>
 #include <omp.h>
 #include "check_var_type.h"
+#include <gsl/gsl_spline.h>
 
 using namespace std;
 
@@ -45,9 +45,15 @@ int useed;
 string Poissonfname;
 string Densityfname;
 int use_cpkG;
+int output_gal;
+int output_matter;
 
+void calc_pkvalues(double *pkvalue, double *mpkvalue, double *cpkvalue,
+				   gsl_spline *pks, gsl_spline *mpks, gsl_spline *cpks,
+				   gsl_interp_accel *acc, double kvalue);
 void calc_deltak(double pkG, double mpkG, double cpkG, double factor, 
 				 double *deltak, double *deltamk, const gsl_rng *r);
+void interpolation(string ifname, int ndata, gsl_spline *pk);
 
 int main(int argc, char* argv[])
 {
@@ -109,7 +115,6 @@ int main(int argc, char* argv[])
 	long long Nc= n0 * n1;
 	Nc = Nc * cn2;					// overall number of complex cells (padding)
 	double pi = 3.14159265358979;
-	// double sN = sqrt(N);
 	double kF0 = 2. * pi / (Lx); // size of x cell in k-space
 	double kF1 = 2. * pi / (Ly); // size of y cell in k-space
 	double kF2 = 2. * pi / (Lz); // size of z cell in k-space
@@ -135,7 +140,8 @@ int main(int argc, char* argv[])
 
 	deltak = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Nc);
 	deltamk = (fftw_complex*) fftw_malloc(sizeof(fftw_complex) * Nc);	//modified by Aniket
-	// aliasing to the double pointer deltar for in-place tranform
+
+	// aliasing to the double pointer deltar and deltamr for in-place tranform
 	deltar = (double *)deltak;
 	deltamr = (double *)deltamk;	//modified by Aniket
 
@@ -168,12 +174,18 @@ int main(int argc, char* argv[])
 	vz_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, vzk, vzr, FFTW_ESTIMATE);
 
 /*-----------------------------------------------------------------------------------------------------------------------------*/
-/* opening and reading transfer function file, matter power spectrum and logarithimic growth rate                              */
+/* opening and reading Gussian power spectra and logarithimic growth rate                              */
 /*-----------------------------------------------------------------------------------------------------------------------------*/
-	interpol pk(pkGfname,ndatapk,2,1,2,true,true);
-	interpol mpk(mpkGfname, ndatampk, 2,1,2,true,true);	//modified by Aniket
-	interpol cpk(cpkGfname, ndatacpk, 2,1,2,true,true);
-	interpol f(ffname, ndataf, 2,1,2,true,true);		//modified by Aniket
+    gsl_interp_accel *acc = gsl_interp_accel_alloc ();
+    gsl_spline *pks = gsl_spline_alloc (gsl_interp_cspline, ndatapk);
+    gsl_spline *mpks = gsl_spline_alloc (gsl_interp_cspline, ndatampk);
+    gsl_spline *cpks = gsl_spline_alloc (gsl_interp_cspline, ndatacpk);
+    gsl_spline *fs = gsl_spline_alloc (gsl_interp_cspline, ndataf);
+
+	interpolation(pkGfname, ndatapk, pks);
+	interpolation(mpkGfname, ndatampk, mpks);
+	interpolation(cpkGfname, ndatacpk, cpks);
+	interpolation(ffname, ndataf, fs);
 
 /*-------------------------------------------------------------------------*/
 /* Generating the mock density field in k-space                            */
@@ -182,7 +194,6 @@ int main(int argc, char* argv[])
 
 	r  = gsl_rng_alloc(rt);
 	gsl_rng_set(r,seed);
-
 
 	// First, generate the mock density field for 
 	// deltak(0:n0-1,0:n1-1,1:cn2-2) when n2 is even
@@ -194,17 +205,21 @@ int main(int argc, char* argv[])
 	// Note that we use the periodicity of the density field 
 	// in Fourier space :: deltak[i0,i1,i2] = deltak[i0-n0,i1-n1,i2]
 	int cn2max = (n2%2==1? cn2 : cn2-1);
+	double k0 = 0.0, k1 = 0.0, k2 = 0.0;
+    double kvalue = 0.0, pkvalue = 0.0, mpkvalue = 0.0, cpkvalue = 0.0;
 	for(int i0 = 0; i0 < n0; i0++){
-		double k0 = kF0 * double((i0 < n0/2) ? i0 : i0-n0);
+		k0 = kF0 * double((i0 < n0/2) ? i0 : i0-n0);
 		for(int i1 = 0; i1 < n1; i1++){
-			double k1 = kF1 * double((i1 < n1/2) ? i1 : i1-n1);
+			k1 = kF1 * double((i1 < n1/2) ? i1 : i1-n1);
 			for(int i2 = 1; i2 < cn2max; i2++){
-				double k2 = kF2 * double(i2);
-				double kvalue = sqrt(k0*k0 + k1*k1 + k2*k2);
+				k2 = kF2 * double(i2);
+				kvalue = sqrt(k0*k0 + k1*k1 + k2*k2);
+				calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+							  pks, mpks, cpks, acc, kvalue); 
 				int indx = i2+cn2*(i1+n1*(i0));
-				calc_deltak(pk.value(kvalue), mpk.value(kvalue), cpk.value(kvalue), 0.5*volume,
+				calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 							&deltak[indx][0], &deltamk[indx][0], r);
-				calc_deltak(pk.value(kvalue), mpk.value(kvalue), cpk.value(kvalue), 0.5*volume,
+				calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 							&deltak[indx][1], &deltamk[indx][1],r );
 			}
 		}
@@ -246,10 +261,10 @@ int main(int argc, char* argv[])
 
 	for(int i0 = 0; i0 < n0; i0++){
 		int x0=(n0-i0)%n0;
-		double k0 = kF0 * double((i0 < n0/2) ? i0 : i0-n0);
+		k0 = kF0 * double((i0 < n0/2) ? i0 : i0-n0);
 		for(int i1 = 0; i1 < n1; i1++){
 			int x1=(n1-i1)%n1;
-			double k1 = kF1 * double((i1 < n1/2) ? i1 : i1-n1);
+			k1 = kF1 * double((i1 < n1/2) ? i1 : i1-n1);
 			double kvalue0 = sqrt(k0*k0 + k1*k1);
 			double kvalue1 = sqrt(k0*k0 + k1*k1 + pow(kF2*n2/2.,2.));
 			if(i0==x0 && i1==x1){
@@ -261,20 +276,26 @@ int main(int argc, char* argv[])
 					// For even n2, generate the real number thing deltak(0,0,n2/2)
 					if(!(n2%2)){
 						int indx = n2/2+cn2*(i1+n1*(i0));
-						calc_deltak(pk.value(kvalue1), mpk.value(kvalue1), cpk.value(kvalue1), volume,
+						calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+									  pks, mpks, cpks, acc, kvalue1); 
+						calc_deltak(pkvalue, mpkvalue, cpkvalue, volume,
 									&deltak[indx][0], &deltamk[indx][0], r);
 						deltak[indx][1] = 0.0; deltamk[indx][1] = 0.0;
 					}
 				}
 				else{ // Nyquist frequency modes are real.
 					int indx = cn2*(i1+n1*(i0));
-					calc_deltak(pk.value(kvalue0), mpk.value(kvalue0), cpk.value(kvalue0), volume,
+					calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+								  pks, mpks, cpks, acc, kvalue0); 
+					calc_deltak(pkvalue, mpkvalue, cpkvalue, volume,
 								&deltak[indx][0], &deltamk[indx][0], r);
 					deltak[indx][1] = 0.0; deltamk[indx][1] = 0.0;
 					// For even n2, repeat the same procedure for i2=n2/2 
 					if(!(n2%2)){
 						int indx = n2/2+cn2*(i1+n1*(i0));
-						calc_deltak(pk.value(kvalue1), mpk.value(kvalue1), cpk.value(kvalue1), volume,
+						calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+									  pks, mpks, cpks, acc, kvalue1); 
+						calc_deltak(pkvalue, mpkvalue, cpkvalue, volume,
 									&deltak[indx][0], &deltamk[indx][0], r);
 						deltak[indx][1] = 0.0; deltamk[indx][1] = 0.0;
 					}
@@ -285,24 +306,28 @@ int main(int argc, char* argv[])
 					// generate the gaussian random field for
 					// deltak(i0,i1,0)
 					int indx = cn2*(i1 + n1*(i0));
-					calc_deltak(pk.value(kvalue0), mpk.value(kvalue0), cpk.value(kvalue0), 0.5*volume,
+					calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+								  pks, mpks, cpks, acc, kvalue0); 
+					calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 						    	&deltak[indx][0], &deltamk[indx][0], r);
-					calc_deltak(pk.value(kvalue0), mpk.value(kvalue0), cpk.value(kvalue0), 0.5*volume,
+					calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 						    	&deltak[indx][1], &deltamk[indx][1], r);
 
 					// assign the complex conjugate to
 					// deltak(x0,x1,0)
-					deltak[cn2*(x1 + n1*(x0))][0]=deltak[indx][0];
-					deltamk[cn2*(x1 + n1*(x0))][0]=deltamk[indx][0];	//modified by Aniket
-					deltak[cn2*(x1 + n1*(x0))][1]=-deltak[indx][1];
-					deltamk[cn2*(x1 + n1*(x0))][1]=-deltamk[indx][1];	//modified by Aniket
+					deltak[cn2*(x1 + n1*(x0))][0] = deltak[indx][0];
+					deltamk[cn2*(x1 + n1*(x0))][0] = deltamk[indx][0];	//modified by Aniket
+					deltak[cn2*(x1 + n1*(x0))][1] = -deltak[indx][1];
+					deltamk[cn2*(x1 + n1*(x0))][1] = -deltamk[indx][1];	//modified by Aniket
 
 					// For even n2, repeat the same procedure for i2=n2/2 
 					if(!(n2%2)){
 						int indx = n2/2+cn2*(i1 + n1*(i0));
-						calc_deltak(pk.value(kvalue1), mpk.value(kvalue1), cpk.value(kvalue1), 0.5*volume,
+						calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+									  pks, mpks, cpks, acc, kvalue1); 
+						calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 							    	&deltak[indx][0], &deltamk[indx][0], r);
-						calc_deltak(pk.value(kvalue1), mpk.value(kvalue1), cpk.value(kvalue1), 0.5*volume,
+						calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 						        	&deltak[indx][1], &deltamk[indx][1], r);
 			
 						deltak[n2/2+cn2*(x1+n1*(x0))][0]=deltak[indx][0];
@@ -320,62 +345,12 @@ int main(int argc, char* argv[])
 	cout << "Finished generating mock density field." << endl;
 
 /*-------------------------------------------------------------------------*/
-/* Testing the mock density field                                          */
-/*-------------------------------------------------------------------------*/
-/*-------------------------------------------------------------------------*/
-/* Store deltak into the temporary array                                   */
-/*-------------------------------------------------------------------------*/
-/*	fftw_complex* temp = new fftw_complex[Nc];
-
-	int i0=0;
-   int chunk = n0 / 10;
-#pragma omp parallel private(i0)
-	{
-#pragma omp for schedule(dynamic, chunk)
-		for(i0 = 0; i0 < n0; i0++){
-			for(int i1 = 0; i1 < n1; i1++){
-				for(int i2 = 0; i2 < cn2; i2++){
-					temp[i2 + cn2*(i1 + n1*(i0))][0]
-					=deltak[i2 + cn2*(i1 + n1*(i0))][0];
-					temp[i2 + cn2*(i1 + n1*(i0))][1]
-					=deltak[i2 + cn2*(i1 + n1*(i0))][1];
-				}
-			}
-		}
-	}
-*/
-/*-------------------------------------------------------------------------*/
-/* Check if r2c(c2r(deltak)) = n0*n1*n2*deltak                             */
-/* This test fails if deltak is not Hermitian.                             */
-/*-------------------------------------------------------------------------*/
-/*	fftw_execute(Pfftw_c2r);
-	fftw_execute(Pfftw_r2c);
-
-	for(i0 = 0; i0 < n0; i0++){
-		for(int i1 = 0; i1 < n1; i1++){
-			for(int i2=0; i2 < cn2; i2++){
-//				cout<<deltak[i2 + cn2*(i1 + n1*(i0))][0]<<endl;
-				double ratio1=deltak[i2 + cn2*(i1 + n1*(i0))][0]/temp[i2 + cn2*(i1 + n1*(i0))][0];
-				double ratio2=deltak[i2 + cn2*(i1 + n1*(i0))][1]/temp[i2 + cn2*(i1 + n1*(i0))][1];
-				if( (long(ratio1)-N) > .1 || (long(ratio2) - N) > .1 ){
-					cout<<i0<<" "<<i1<<" "<<i2<<" "<<ratio1<<" "<<ratio2<<" "<<n0*n1*n2<<endl;
-				}
-			}
-		}
-	}
-	delete[]	temp;
-*/
-/*-------------------------------------------------------------------------*/
-
-/*-------------------------------------------------------------------------*/
 /* calculate density map and store it to the file                          */
 /*-------------------------------------------------------------------------*/
 	// c2r Fourier transform to generate the real space density map
 	cout << "Doing FFT for density field." << endl;
 	fftw_execute(Pfftw_c2r);
 	fftw_execute(mPfftw_c2r);	//modified by Aniket
-//	cout << "Finished." << endl;
-//	fftw_free(deltak);
 
 	// Physical size of the last column of deltar is cn2*2.
 	// However, the last 2 (even n2) or 1 (odd n2) elements are junks,
@@ -421,9 +396,6 @@ int main(int argc, char* argv[])
 	long double avg_dr = 0;
 	long double var_dr = 0;
 
-//	int *deltar_hist = new int [2010];
-//	for (int i=0;i<2010;i++) deltar_hist[i] = 0;
-
 	for(int i0 = 0; i0 < n0; i0++){
 		for(int i1 = 0; i1 < n1; i1++){
 			for(int i2 = 0; i2 < n2; i2++){
@@ -438,20 +410,9 @@ int main(int argc, char* argv[])
 				deltar_max = ((deltar_max > deltar[ijk])? deltar_max:deltar[ijk]);
 				deltar_min = ((deltar_min < deltar[ijk])? deltar_min:deltar[ijk]);
 				vxr[ijk] = deltamr[ijk];				//modified by Aniket
-//				vxr[ijk] = deltar[ijk];
-//				int indx = int((deltar[ijk]+1.)/0.1);
-//				if (indx>2009) indx = 2009;
-//				deltar_hist[indx] ++;
 			}
 		}
 	}
-
-//	ofstream deltarhout("deltar_histogram.dat");
-//	for (int i=0;i<2010;i++){
-//		double deltar_bin = -1.+double(i)*0.1;
-//		deltarhout << deltar_bin << "\t" << deltar_hist[i] << endl;
-//	}
-//	deltarhout.close();
 
 	cout << "density maximum = " << deltar_max << endl;
 	cout << "density minimum = " << deltar_min << endl;
@@ -460,6 +421,44 @@ int main(int argc, char* argv[])
 	cout << "Average of density field: " << avg_dr << endl;
 	cout << "Variance of density field: " << var_dr << endl;
 
+/*-------------------------------------------------------------------------*/
+// Output density grid to get the density power spectrum
+/*-------------------------------------------------------------------------*/	
+
+	// if output_matter == 1, skip to output matter density file
+	if(output_matter == 0){
+    	ofstream densityout(Densityfname.c_str(),ios::binary);			//modified by Aniket
+    	if(!densityout.is_open()){
+    		cerr<<"Output file cannot be opened!"<<endl;
+    	}
+    
+    	densityout.seekp(0);							//modified by Aniket
+    	densityout.write((char*)&lengthx, sizeof(double));
+    	densityout.write((char*)&lengthy, sizeof(double));
+    	densityout.write((char*)&lengthz, sizeof(double));
+    	densityout.write((char*)&n0, sizeof(int));
+    	densityout.write((char*)&n1, sizeof(int));
+    	densityout.write((char*)&n2, sizeof(int));
+    
+    	for(int i0 = 0; i0 < n0; i0++){
+    	  for(int i1 = 0; i1 < n1; i1++){
+    	    for(int i2 = 0; i2 < n2; i2++){
+    	      int ijk = i2 + cn22*(i1 + n1*(i0));
+    	      densityout.write((char*) &deltamr[ijk], sizeof(double));
+    	    }
+    	  }
+    	}
+    	densityout.close();
+	}
+
+	// If output_gal == 1, skip the following procedure..
+	if(output_gal == 1){
+	  return 0;
+	}
+
+/*-------------------------------------------------------------------------*/
+/* calculate velocity field by FFT-ing the density field                   */
+/*-------------------------------------------------------------------------*/
 	cout << "Doing FFT for the density field." << endl;
 	fftw_execute(vx_r2c);
 
@@ -472,8 +471,8 @@ int main(int argc, char* argv[])
 			for(int i2 = 0; i2 < cn2; i2++){
 				double k2 = kF2 * double(i2);
 				double k = sqrt(k0*k0 + k1*k1 + k2*k2);
-				double const_fac = (k>0)? aH/k/k*d3r*(f.value(k)) : 0;	//modified by Aniket - smoothing doesn't seem to work
-
+                double fvalue = (k>0)? gsl_spline_eval (fs, k, acc) : 1.0;
+				double const_fac = (k>0)? aH/k/k*d3r*fvalue : 0;	//modified by Aniket - smoothing doesn't seem to work
 				int indx = i2+cn2*(i1+n1*i0);
 				double deltakr = vxk[indx][0]*const_fac;
 				double deltaki = vxk[indx][1]*const_fac;
@@ -493,31 +492,6 @@ int main(int argc, char* argv[])
 	fftw_execute(vy_c2r);
 	cout << "Doing FFT for the vz field." << endl;
 	fftw_execute(vz_c2r);
-
-/*-------------------------------------------------------------------------*/
-// Output density grid to get the density power spectrum
-/*-------------------------------------------------------------------------*/	
-//	string densityfname = "mock_density_grid.bin";
-/*
-	ofstream densityout(Densityfname.c_str(),ios::binary);			//modified by Aniket
-	if(!densityout.is_open()){
-		cerr<<"Output file cannot be opened!"<<endl;
-	}
-	// output to file
-	densityout.seekp(0);							//modified by Aniket
-	densityout.write((char*) deltamr, sizeof(double) * n0 * n1 * cn22);	//modified by Aniket
-	densityout.close();							//modified by Aniket
-*/
-	// renormalize the density field as
-	// density = (1+density)/(1+density_max)
-//	for(int i0 = 0; i0 < n0; i0++){
-//		for(int i1 = 0; i1 < n1; i1++){
-//			for(int i2 = 0; i2 < n2; i2++){
-//				int ijk = i2 + cn22*(i1 + n1*(i0));
-//				deltar[ijk] = (1.+deltar[ijk])/(1.+deltar_max);
-//			}
-//		}
-//	}
 
 // -------------------------------------------------------------------------
 // Initialize the gsl random generator
@@ -554,9 +528,6 @@ int main(int argc, char* argv[])
 	double vz_min = 1e5;
 	double vz_max = -1e5;
 
-//	int *vz_hist = new int [1020*2];
-//	for (int i=0;i<1020*2;i++) vz_hist[i] = 0;
-
 	int nPoisson = 0;
 	for(int i0 = 0; i0 < n0; i0++){
 		for(int i1 = 0; i1 < n1; i1++){
@@ -569,32 +540,10 @@ int main(int argc, char* argv[])
 
 				double Nthiscell = ngalbar*(1.+deltar[ijk]);
 				int Nthiscell_int = gsl_ran_poisson(rselect,Nthiscell);
-//				int Nthiscell_int = (int) floor(Nthiscell);
-//				Nthiscell = Nthiscell - Nthiscell_int;
 
 				vx = vxr[ijk]*d3k;	//modified by Aniket
 				vy = vyr[ijk]*d3k;	//modified by Aniket
 				vz = vzr[ijk]*d3k;	//modified by Aniket
-
-/*				avg_vx += vx;
-				avg_vy += vy;
-				avg_vz += vz;
-				var_vx += vx*vx;
-				var_vy += vy*vy;
-				var_vz += vz*vz;
-				if (vx<=vx_min) vx_min = vx;
-				if (vy<=vy_min) vy_min = vy;
-				if (vz<=vz_min) vz_min = vz;
-				if (vx>=vx_max) vx_max = vx;
-				if (vy>=vy_max) vy_max = vy;
-				if (vz>=vz_max) vz_max = vz;*/
-
-//				int indx = int(abs(vz)/50.);
-//				vz_hist[indx*2] ++;
-
-				// random number for selecting galaxy
-//				urand = gsl_rng_uniform(rselect);
-//				if(urand < Nthiscell) Nthiscell_int = Nthiscell_int+1;
 
 				for(int ithiscell=0;ithiscell<Nthiscell_int;ithiscell++){
 					urand = gsl_rng_uniform(rpos);
@@ -610,7 +559,6 @@ int main(int argc, char* argv[])
 					galdata[6*nPoisson+3] = vx;
 					galdata[6*nPoisson+4] = vy;
 					galdata[6*nPoisson+5] = vz;
-//					vz_hist[indx*2+1] ++;
 					nPoisson++;
 
 					avg_vx += vx;
@@ -638,25 +586,6 @@ int main(int argc, char* argv[])
 	fftw_free(vyk);
 	fftw_free(vzk);
 
-/*	ostringstream cRs;
-	cRs << Rs;
-	string cfilter = (ifilter==0)? "tophat_" : "gaussian_";
-	if (Rs==0) cfilter = "";
-	string vzfname = "vz_histogram_" + cfilter + "Rs=" + cRs.str() + ".dat";
-
-	ofstream vzhout(vzfname.c_str());
-	for (int i=0;i<1020;i++){
-		double vz_bin = double(i)*50.;
-		vzhout << vz_bin << "\t" << vz_hist[i*2] << "\t" << vz_hist[i*2+1] << endl;
-	}
-	vzhout.close();*/
-
-/*	avg_vx = avg_vx/(long double)(Ntotal);
-	var_vx = var_vx/(long double)(Ntotal)-avg_vx*avg_vx;
-	avg_vy = avg_vy/(long double)(Ntotal);
-	var_vy = var_vy/(long double)(Ntotal)-avg_vy*avg_vy;
-	avg_vz = avg_vz/(long double)(Ntotal);
-	var_vz = var_vz/(long double)(Ntotal)-avg_vz*avg_vz;*/
 	avg_vx = avg_vx/(long double)(nPoisson);
 	var_vx = var_vx/(long double)(nPoisson)-avg_vx*avg_vx;
 	avg_vy = avg_vy/(long double)(nPoisson);
@@ -746,11 +675,23 @@ void ReadParams(int argc, char* argv[]){
 		cin >> Pseed;
 		cout << "Please enter the random seed for selecting galaxies!" << endl;
 		cin >> useed;
-		cout << "Please enter the output file to store the poisson sample!" <<endl;
-		cin >> Poissonfname;
-		cout << "Please enter the output file to store density!" << endl;
-		cin >> Densityfname;
-	}else if (argc == 18){
+		cout << "Output the galaxy catalog? (0:yes, 1:no)" << endl;
+		cin >> output_gal;
+		if (output_gal == 0){
+     		cout << "Please enter the output file name to store the galaxy catalog!" <<endl;
+	    	cin >> Poissonfname;
+		}else{
+			Poissonfname = "dummy.dat"; // dummy
+		}
+		cout << "Output the matter density file? (0:yes, 1:no)" << endl;
+		cin >> output_matter;
+		if (output_matter == 0){
+     		cout << "Please enter the output file name to store the matter density!" <<endl;
+	    	cin >> Densityfname;
+		}else{
+			Densityfname = "dummy.dat"; // dummy
+		}
+	}else if (argc == 20){
 		pkGfname = argv[1];
 		mpkGfname = argv[2];
 		if(check_int(argv[3],"use_cpkG")) use_cpkG = atoi(argv[3]);
@@ -772,8 +713,18 @@ void ReadParams(int argc, char* argv[]){
 		if(check_int(argv[15],"useed")) useed = atoi(argv[15]);
 		Poissonfname = argv[16];
 		Densityfname = argv[17];
+		if(check_int(argv[18],"output_matter")) output_matter = atoi(argv[18]);
+		if(output_matter != 0 and output_matter != 1){
+			cout << "output_matter should be 0 or 1!!!" << endl;
+			exit(1);
+		}
+		if(check_int(argv[19],"output_gal")) output_gal = atoi(argv[19]);
+		if(output_gal != 0 and output_gal != 1){
+			cout << "output_gal should be 0 or 1!!!" << endl;
+			exit(1);
+		}
 	}else{
-		cout << "number of arguments should be 0 or 17!!!" << endl;
+		cout << "number of arguments should be 0 or 19!!!" << endl;
 		exit(1);
 	}
 }
@@ -795,5 +746,39 @@ void calc_deltak(double pkG, double mpkG, double cpkG, double factor,
 		double gauss = gsl_ran_gaussian(r,1.0);
 		*deltak = gauss*sqrt(pkG*factor);
 		*deltamk = gauss*sqrt(mpkG*factor);
+	}
+}
+
+// compute interpolating function gsl_spline *pk
+void interpolation(string ifname, int ndata, gsl_spline *pk){
+    int i = 0;
+	string str;
+    ifstream ifs(ifname.c_str());
+	double xin[ndata]; double yin[ndata];
+	while(getline(ifs, str)) {
+		sscanf(str.data(), "%lf %lf", &xin[i], &yin[i]);
+		i++;
+	}
+    gsl_spline_init (pk, xin, yin, ndata);
+}
+
+// calc pk, mpk and cpk at kvalue using gsl interpolation
+void calc_pkvalues(double *pkvalue, double *mpkvalue, double *cpkvalue,
+				   gsl_spline *pks, gsl_spline *mpks, gsl_spline *cpks,
+				   gsl_interp_accel *acc, double kvalue){
+    *mpkvalue = gsl_spline_eval (mpks, kvalue, acc);
+	if (output_gal == 0){
+		*pkvalue = gsl_spline_eval (pks, kvalue, acc);
+	}else{
+		// in this case don't need to calculate pkvalue,
+		// so assign dammy value
+		*pkvalue = *mpkvalue;
+	}
+	if (use_cpkG == 0){
+		// in this case don't need to calculate cpkvalue,
+		// so assign dammy value
+		*cpkvalue = *mpkvalue;
+	}else{
+    	*cpkvalue = gsl_spline_eval (cpks, kvalue, acc);
 	}
 }
