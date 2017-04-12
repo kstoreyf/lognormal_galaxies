@@ -57,7 +57,7 @@ PROGRAM Compute_Xi
   close(11)
 
   ! write out the result
-  open(2,file='./data/inputs/'//trim(ofile_prefix)//'_Rh_xi.txt',status='unknown')
+  open(2,file=trim(ofile_prefix)//'_Rh_xi.txt',status='unknown')
   do i=1,nrad
      write(2,'(2E16.5)')Rh(i),xi(i)
   enddo

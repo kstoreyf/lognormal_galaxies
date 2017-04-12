@@ -49,10 +49,10 @@ PROGRAM Compute_Pk
   D1=g(z)*(1d0+zeq)/(1d0+z) ! now output P(k,z) as a function of k
 
   ! open output files
-  open(1,file='./data/inputs/'//trim(ofile_prefix)//'_pk.txt')
-  open(2,file='./data/inputs/'//trim(ofile_prefix)//'_gnu.txt') 
-  open(3,file='./data/inputs/'//trim(ofile_prefix)//'_dgnudlna.txt')
-  open(4,file='./data/inputs/'//trim(ofile_prefix)//'_fnu.txt')
+  open(1,file=trim(ofile_prefix)//'_pk.txt')
+  open(2,file=trim(ofile_prefix)//'_gnu.txt') 
+  open(3,file=trim(ofile_prefix)//'_dgnudlna.txt')
+  open(4,file=trim(ofile_prefix)//'_fnu.txt')
 
   k_ov_h=1d-5 ! h/Mpc
   dlnk=2d-2
