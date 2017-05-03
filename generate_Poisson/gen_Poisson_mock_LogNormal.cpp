@@ -425,8 +425,8 @@ int main(int argc, char* argv[])
 // Output density grid to get the density power spectrum
 /*-------------------------------------------------------------------------*/	
 
-	// if output_matter == 1, skip to output matter density file
-	if(output_matter == 0){
+	// if output_matter == 0, skip to output matter density file
+	if(output_matter == 1){
     	ofstream densityout(Densityfname.c_str(),ios::binary);			//modified by Aniket
     	if(!densityout.is_open()){
     		cerr<<"Output file cannot be opened!"<<endl;
@@ -451,8 +451,8 @@ int main(int argc, char* argv[])
     	densityout.close();
 	}
 
-	// If output_gal == 1, skip the following procedure..
-	if(output_gal == 1){
+	// If output_gal == 0, skip the following procedure..
+	if(output_gal == 0){
 	  return 0;
 	}
 
@@ -675,17 +675,17 @@ void ReadParams(int argc, char* argv[]){
 		cin >> Pseed;
 		cout << "Please enter the random seed for selecting galaxies!" << endl;
 		cin >> useed;
-		cout << "Output the galaxy catalog? (0:yes, 1:no)" << endl;
+		cout << "Output the galaxy catalog? (0:no, 1:yes)" << endl;
 		cin >> output_gal;
-		if (output_gal == 0){
+		if (output_gal == 1){
      		cout << "Please enter the output file name to store the galaxy catalog!" <<endl;
 	    	cin >> Poissonfname;
 		}else{
 			Poissonfname = "dummy.dat"; // dummy
 		}
-		cout << "Output the matter density file? (0:yes, 1:no)" << endl;
+		cout << "Output the matter density file? (0:no, 1:yes)" << endl;
 		cin >> output_matter;
-		if (output_matter == 0){
+		if (output_matter == 1){
      		cout << "Please enter the output file name to store the matter density!" <<endl;
 	    	cin >> Densityfname;
 		}else{
@@ -767,7 +767,7 @@ void calc_pkvalues(double *pkvalue, double *mpkvalue, double *cpkvalue,
 				   gsl_spline *pks, gsl_spline *mpks, gsl_spline *cpks,
 				   gsl_interp_accel *acc, double kvalue){
     *mpkvalue = gsl_spline_eval (mpks, kvalue, acc);
-	if (output_gal == 0){
+	if (output_gal == 1){
 		*pkvalue = gsl_spline_eval (pks, kvalue, acc);
 	}else{
 		// in this case don't need to calculate pkvalue,
