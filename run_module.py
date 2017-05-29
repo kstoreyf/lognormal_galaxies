@@ -24,7 +24,7 @@ def read_params(ini_fname):
 			  'kbin':0.01,'kmax':0.,'lmax':4,\
 			  'gen_inputs':False,'run_lognormal':False,'calc_pk':False,'calc_cpk':False,\
 			  'use_cpkG':0,\
-                          'output_matter':0,'output_gal':0,\
+                          'output_matter':1,'output_gal':1,\
 			  'calc_mode_pk':0,\
 			  'out_dir':'\./data',\
 			  'halofname_prefix':'',\
