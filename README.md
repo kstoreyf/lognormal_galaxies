@@ -46,6 +46,7 @@ This package consists of the following steps:
 
 
 ## User's Manual
+1. First you need to install [GSL - GNU Scientific Library](https://www.gnu.org/software/gsl/) and [FFTW](http://www.fftw.org/)
 
 1. Edit Makefile in the top directory "codes\_lognormal/". The necessary information includes:
 
