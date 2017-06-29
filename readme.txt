@@ -1,5 +1,7 @@
 *** Codes for generating log-normal realisations, and computing the monopole, quadrupole, and hexadecapole power spectra ***
 
+Reference: A. Agrawal, R. Makiya, C.-T. Chiang, D. Jeong, S. Saito, and E. Komatsu, arXiv:1706.09195
+
 << HISTORY >>
 - Originally developed by Donghui Jeong (Penn State Univ.) in 2011
 - Enhanced by Chi-Ting Chiang (Stony Brook Univ.) through 2015
