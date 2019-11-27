@@ -11,6 +11,15 @@
 	19 May 2012
 	Donghui Jeong
 	[v2] Generate velocities from the matter density, rather than the galaxy density divided by the linear bias, by Aniket Agrawal, March 2016
+
+    - Fix the bug in the interpolator.
+    Using one "accelerator" for four spline function screwed up the interpolation when Pmax is large. Define one "acc" for each spline.
+
+    - In MacOS10.15, FFTW_ESTIMATE gave Segmentation fault, and change to FFTW_MEASURE works fine. Perhaps a bug in the default version?
+
+    26 Nov. 2019
+    Donghui Jeong
+
 */
 
 #include <iostream>
@@ -49,8 +58,10 @@ int output_gal;
 int output_matter;
 
 void calc_pkvalues(double *pkvalue, double *mpkvalue, double *cpkvalue,
-				   gsl_spline *pks, gsl_spline *mpks, gsl_spline *cpks,
-				   gsl_interp_accel *acc, double kvalue);
+                   gsl_spline *pks, gsl_interp_accel *acc_pk,
+                   gsl_spline *mpks, gsl_interp_accel *acc_mpk,
+                   gsl_spline *cpks, gsl_interp_accel *acc_cpk,
+                   double kvalue);
 void calc_deltak(double pkG, double mpkG, double cpkG, double factor, 
 				 double *deltak, double *deltamk, const gsl_rng *r);
 void interpolation(string ifname, int ndata, gsl_spline *pk);
@@ -146,8 +157,11 @@ int main(int argc, char* argv[])
 	deltamr = (double *)deltamk;	//modified by Aniket
 
 	fftw_plan Pfftw_c2r, mPfftw_c2r;	//modified by Aniket
-	Pfftw_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, deltak, deltar, FFTW_ESTIMATE);
-	mPfftw_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, deltamk, deltamr, FFTW_ESTIMATE);	//modified by Aniket
+
+//	Pfftw_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, deltak, deltar, FFTW_ESTIMATE);
+//    mPfftw_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, deltamk, deltamr,FFTW_ESTIMATE);	//modified by Aniket
+	Pfftw_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, deltak, deltar, FFTW_MEASURE); 
+    mPfftw_c2r = fftw_plan_dft_c2r_3d(n0, n1, n2, deltamk, deltamr, FFTW_MEASURE);	//modified by Aniket
 
 	//	declare velocity variables
 	fftw_complex *vxk;
@@ -176,7 +190,11 @@ int main(int argc, char* argv[])
 /*-----------------------------------------------------------------------------------------------------------------------------*/
 /* opening and reading Gussian power spectra and logarithimic growth rate                              */
 /*-----------------------------------------------------------------------------------------------------------------------------*/
-    gsl_interp_accel *acc = gsl_interp_accel_alloc ();
+    gsl_interp_accel *acc_pk  = gsl_interp_accel_alloc ();
+    gsl_interp_accel *acc_mpk = gsl_interp_accel_alloc ();
+    gsl_interp_accel *acc_cpk = gsl_interp_accel_alloc ();
+    gsl_interp_accel *acc_f   = gsl_interp_accel_alloc ();
+
     gsl_spline *pks = gsl_spline_alloc (gsl_interp_cspline, ndatapk);
     gsl_spline *mpks = gsl_spline_alloc (gsl_interp_cspline, ndatampk);
     gsl_spline *cpks = gsl_spline_alloc (gsl_interp_cspline, ndatacpk);
@@ -214,8 +232,9 @@ int main(int argc, char* argv[])
 			for(int i2 = 1; i2 < cn2max; i2++){
 				k2 = kF2 * double(i2);
 				kvalue = sqrt(k0*k0 + k1*k1 + k2*k2);
-				calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
-							  pks, mpks, cpks, acc, kvalue); 
+                calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+                              pks, acc_pk, mpks, acc_mpk, cpks, acc_cpk,
+                              kvalue);
 				int indx = i2+cn2*(i1+n1*(i0));
 				calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 							&deltak[indx][0], &deltamk[indx][0], r);
@@ -276,8 +295,9 @@ int main(int argc, char* argv[])
 					// For even n2, generate the real number thing deltak(0,0,n2/2)
 					if(!(n2%2)){
 						int indx = n2/2+cn2*(i1+n1*(i0));
-						calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
-									  pks, mpks, cpks, acc, kvalue1); 
+                        calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+                                      pks, acc_pk, mpks, acc_mpk, cpks, acc_cpk,
+                                      kvalue1);
 						calc_deltak(pkvalue, mpkvalue, cpkvalue, volume,
 									&deltak[indx][0], &deltamk[indx][0], r);
 						deltak[indx][1] = 0.0; deltamk[indx][1] = 0.0;
@@ -285,16 +305,18 @@ int main(int argc, char* argv[])
 				}
 				else{ // Nyquist frequency modes are real.
 					int indx = cn2*(i1+n1*(i0));
-					calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
-								  pks, mpks, cpks, acc, kvalue0); 
+                    calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+                                pks, acc_pk, mpks, acc_mpk, cpks, acc_cpk,
+                                kvalue0);
 					calc_deltak(pkvalue, mpkvalue, cpkvalue, volume,
 								&deltak[indx][0], &deltamk[indx][0], r);
 					deltak[indx][1] = 0.0; deltamk[indx][1] = 0.0;
 					// For even n2, repeat the same procedure for i2=n2/2 
 					if(!(n2%2)){
 						int indx = n2/2+cn2*(i1+n1*(i0));
-						calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
-									  pks, mpks, cpks, acc, kvalue1); 
+                        calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+                                    pks, acc_pk, mpks, acc_mpk, cpks, acc_cpk,
+                                    kvalue1);	
 						calc_deltak(pkvalue, mpkvalue, cpkvalue, volume,
 									&deltak[indx][0], &deltamk[indx][0], r);
 						deltak[indx][1] = 0.0; deltamk[indx][1] = 0.0;
@@ -306,8 +328,9 @@ int main(int argc, char* argv[])
 					// generate the gaussian random field for
 					// deltak(i0,i1,0)
 					int indx = cn2*(i1 + n1*(i0));
-					calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
-								  pks, mpks, cpks, acc, kvalue0); 
+                    calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+                                pks, acc_pk, mpks, acc_mpk, cpks, acc_cpk,
+                                kvalue0);
 					calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 						    	&deltak[indx][0], &deltamk[indx][0], r);
 					calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
@@ -323,8 +346,9 @@ int main(int argc, char* argv[])
 					// For even n2, repeat the same procedure for i2=n2/2 
 					if(!(n2%2)){
 						int indx = n2/2+cn2*(i1 + n1*(i0));
-						calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
-									  pks, mpks, cpks, acc, kvalue1); 
+                        calc_pkvalues(&pkvalue, &mpkvalue, &cpkvalue,
+                                    pks, acc_pk, mpks, acc_mpk, cpks, acc_cpk,
+                                    kvalue1);
 						calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
 							    	&deltak[indx][0], &deltamk[indx][0], r);
 						calc_deltak(pkvalue, mpkvalue, cpkvalue, 0.5*volume,
@@ -471,7 +495,7 @@ int main(int argc, char* argv[])
 			for(int i2 = 0; i2 < cn2; i2++){
 				double k2 = kF2 * double(i2);
 				double k = sqrt(k0*k0 + k1*k1 + k2*k2);
-                double fvalue = (k>0)? gsl_spline_eval (fs, k, acc) : 1.0;
+                double fvalue = (k>0)? gsl_spline_eval (fs, k, acc_f) : 1.0;
 				double const_fac = (k>0)? aH/k/k*d3r*fvalue : 0;	//modified by Aniket - smoothing doesn't seem to work
 				int indx = i2+cn2*(i1+n1*i0);
 				double deltakr = vxk[indx][0]*const_fac;
@@ -764,11 +788,13 @@ void interpolation(string ifname, int ndata, gsl_spline *pk){
 
 // calc pk, mpk and cpk at kvalue using gsl interpolation
 void calc_pkvalues(double *pkvalue, double *mpkvalue, double *cpkvalue,
-				   gsl_spline *pks, gsl_spline *mpks, gsl_spline *cpks,
-				   gsl_interp_accel *acc, double kvalue){
-    *mpkvalue = gsl_spline_eval (mpks, kvalue, acc);
+                   gsl_spline *pks, gsl_interp_accel *acc_pk,
+                   gsl_spline *mpks, gsl_interp_accel *acc_mpk,
+                   gsl_spline *cpks, gsl_interp_accel *acc_cpk,
+                   double kvalue){
+    *mpkvalue = gsl_spline_eval (mpks, kvalue, acc_mpk);
 	if (output_gal == 1){
-		*pkvalue = gsl_spline_eval (pks, kvalue, acc);
+		*pkvalue = gsl_spline_eval (pks, kvalue, acc_pk);
 	}else{
 		// in this case don't need to calculate pkvalue,
 		// so assign dammy value
@@ -779,6 +805,6 @@ void calc_pkvalues(double *pkvalue, double *mpkvalue, double *cpkvalue,
 		// so assign dammy value
 		*cpkvalue = *mpkvalue;
 	}else{
-    	*cpkvalue = gsl_spline_eval (cpks, kvalue, acc);
+    	*cpkvalue = gsl_spline_eval (cpks, kvalue, acc_cpk);
 	}
 }
