@@ -5,7 +5,8 @@ FC = gfortran
 # Location of the GSL library
 GSL_HOME = /usr/local
 # Location of the FFTW-3
-FFTW_HOME = /usr/local
+#FFTW_HOME = /usr/local
+FFTW_HOME = /home/users/ksf293/local
 # Location of "omp.h"
 OMP_INC = /usr/local/lib/gcc/5/gcc/x86_64-apple-darwin15.2.0/5.3.0/include/
 # Flag to link openmp

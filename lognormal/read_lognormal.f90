@@ -7,7 +7,8 @@ PROGRAM Read_Lognormal
   character(len=128)::filename
 
   nshow=30 ! # of lines to display
-  filename='lognormal_is1_rlz0_Pnmax128_b1.455_tophat_Rs10.bin'
+  ! filename='lognormal_is1_rlz0_Pnmax128_b1.455_tophat_Rs10.bin'
+  filename = 'data/catalog_example/lognormal/example_lognormal_rlz0.bin'
 
   open(unit=1,file=filename,form='unformatted',action='read',access='stream')
   read(1) Lx,Ly,Lz

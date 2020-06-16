@@ -1,0 +1,20 @@
+#!/bin/bash
+#PBS -N lognormal_3e-5
+#PBS -l walltime=40:00:00
+#PBS -l nodes=1:ppn=24
+#PBS -m ae
+#PBS -o output/$PBS_JOBNAME.out
+#PBS -j oe
+
+cd $PBS_O_WORKDIR
+PATH=$PBS_O_PATH
+echo $PBS_O_WORKDIR
+echo 'starting'
+echo -n 'Job is running on node '; cat $PBS_NODEFILE
+source ~/miniconda3/etc/profile.d/conda.sh
+conda activate py2
+#./run.py cat_L750_n1e-5.cfg
+./run.py cat_L750_n3e-5.cfg
+#./run.py cat_L750_N125k.cfg 
+echo 'done'
+

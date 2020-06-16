@@ -1,5 +1,7 @@
 *** Codes for generating log-normal realisations, and computing the monopole, quadrupole, and hexadecapole power spectra ***
 
+Bitbucket: https://bitbucket.org/komatsu5147/lognormal_galaxies/src/master/
+
 Reference: A. Agrawal, R. Makiya, C.-T. Chiang, D. Jeong, S. Saito, and E. Komatsu, arXiv:1706.09195
 
 << HISTORY >>

@@ -1,3 +1,5 @@
+Bitbucket: https://bitbucket.org/komatsu5147/lognormal_galaxies/src/master/
+
 # Log-normal galaxies
 Codes for generating log-normal realisations of galaxies in redshift-space, and computing the monopole, quadrupole, and hexadecapole power spectra.
 
