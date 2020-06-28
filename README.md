@@ -1,10 +1,12 @@
 # Lognormal mock catalogs
 
 This code generates lognormal mock galaxy catalogs. 
-It is via Eiichiro Komatsu on bitbucket: https://bitbucket.org/komatsu5147/lognormal_galaxies/src/master/
+It is via Eiichiro Komatsu on bitbucket: https://bitbucket.org/komatsu5147/lognormal_galaxies/src/master/.
 I have just added some tweaks for ease of generating many catalogs without overwriting.
 
 This repo is also keeping track of the configs used to generate the mocks used in my https://github.com/kstoreyf/continuous-estimator project.
+
+The original README follows below.
 
 # Log-normal galaxies
 Codes for generating log-normal realisations of galaxies in redshift-space, and computing the monopole, quadrupole, and hexadecapole power spectra.
