@@ -1,10 +1,9 @@
 import numpy as np
 import struct
 
-#tag = 'test'
-#fileName = 'data/catalog_{}/lognormal/{}_lognormal_rlz0.bin'.format(tag, tag)
 
 def read(fn):
+
     with open(fn, mode='rb') as file: # b is important -> binary
         fileContent = file.read()
         
@@ -13,8 +12,7 @@ def read(fn):
         Lx, Ly, Lz, N = header
         data = struct.unpack("f" * ((len(fileContent) -nleading) // 4), fileContent[nleading:])
          
-        data = np.array(data)
-        data = data.reshape((-1, 6))
-   
-   return Lx, Ly, Lz, N, data 
-
+    data = np.array(data)
+    data = data.reshape((-1, 6)) 
+        
+    return Lx, Ly, Lz, N, data
